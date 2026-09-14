@@ -1,0 +1,229 @@
+{
+  "_note": "Salvaged from the withdrawn Node/Prisma seed (v2.0 two-brand). Only the green Rajdhani Food Products data survives; the red/yellow Milk Added Tea brand was descoped (doc v3.0, deviation 5). Copy is placeholder per doc section 19 — RTPP-86 replaces it with client-supplied content.",
+  "site_profile": {
+    "name": "Rajdhani Food Products",
+    "tagline": "FOOD PRODUCTS",
+    "domain": "rajdhanifood.com",
+    "primary_color": "#1B5E20",
+    "secondary_color": "#C9A227",
+    "accent_color": "#FFFFFF",
+    "address_line": "House 12, Road 5, Banani",
+    "city": "Dhaka",
+    "country": "Bangladesh",
+    "phone_primary": "+880 1700-000001",
+    "phone_secondary": "+880 1700-000002",
+    "email_primary": "info@rajdhanifood.com",
+    "email_secondary": "sales@rajdhanifood.com",
+    "website_url": "https://rajdhanifood.com",
+    "business_hours": "Saturday – Thursday, 9:00 AM – 6:00 PM",
+    "map_latitude": 23.7937,
+    "map_longitude": 90.4066,
+    "footer_about": "Rajdhani Food Products blends and packs premium tea sourced from the finest gardens of Bangladesh.",
+    "meta_title": "Rajdhani Food Products — Premium Tea from Bangladesh",
+    "meta_description": "Premium tea, gold blend, classic black, green tea and more, blended and packed in Bangladesh."
+  },
+  "categories": [
+    {
+      "name": "Premium Tea",
+      "iconName": "leaf"
+    },
+    {
+      "name": "Gold Blend",
+      "iconName": "sparkles"
+    },
+    {
+      "name": "Classic Black",
+      "iconName": "coffee"
+    },
+    {
+      "name": "Green Tea",
+      "iconName": "sprout"
+    },
+    {
+      "name": "Tea Bags",
+      "iconName": "package"
+    },
+    {
+      "name": "Loose Tea",
+      "iconName": "wheat"
+    },
+    {
+      "name": "Masala",
+      "iconName": "flame"
+    },
+    {
+      "name": "Cardamom",
+      "iconName": "star"
+    }
+  ],
+  "products": [
+    {
+      "name": "Rajdhani Premium Tea",
+      "category": "Premium Tea",
+      "tagline": "Strong • Refreshing • 100% Natural",
+      "shortDescription": "Our flagship blend — full-bodied, bright and endlessly drinkable.",
+      "description": "<p>A full-bodied blend built from second-flush leaves, balanced for the strong, milky cup Bangladesh drinks every morning.</p>",
+      "ingredients": "<p>100% natural black tea leaves.</p>",
+      "brewingGuide": "<p>One teaspoon per cup. Water just off the boil. Steep three to four minutes.</p>",
+      "badgeText": "BEST SELLER",
+      "isFeatured": true,
+      "packSizes": [
+        {
+          "label": "250g",
+          "sku": "RPT-250",
+          "price": 180
+        },
+        {
+          "label": "500g",
+          "sku": "RPT-500",
+          "price": 340,
+          "comparePrice": 360,
+          "isDefault": true
+        },
+        {
+          "label": "1kg",
+          "sku": "RPT-1000",
+          "price": 660,
+          "comparePrice": 720
+        }
+      ],
+      "highlights": [
+        {
+          "title": "100% Natural",
+          "subtitle": "No additives",
+          "iconName": "leaf"
+        },
+        {
+          "title": "Rich Aroma",
+          "subtitle": "Second flush",
+          "iconName": "wind"
+        },
+        {
+          "title": "Hygienic Packing",
+          "subtitle": "Sealed fresh",
+          "iconName": "shield-check"
+        }
+      ]
+    },
+    {
+      "name": "Rajdhani Gold Blend",
+      "category": "Gold Blend",
+      "tagline": "Our finest selection",
+      "shortDescription": "A premium blend for those who take their tea seriously.",
+      "description": "<p>Hand-selected leaves blended for depth, body and a long finish.</p>",
+      "ingredients": "<p>100% natural black tea leaves.</p>",
+      "brewingGuide": "<p>One heaped teaspoon per cup. Steep four minutes.</p>",
+      "badgeText": "PREMIUM",
+      "isFeatured": true,
+      "packSizes": [
+        {
+          "label": "250g",
+          "sku": "RGB-250",
+          "price": 240,
+          "isDefault": true
+        },
+        {
+          "label": "500g",
+          "sku": "RGB-500",
+          "price": 460,
+          "comparePrice": 480
+        }
+      ],
+      "highlights": [
+        {
+          "title": "Hand Selected",
+          "iconName": "hand"
+        },
+        {
+          "title": "Deep Colour",
+          "iconName": "droplet"
+        }
+      ]
+    },
+    {
+      "name": "Rajdhani Green Tea",
+      "category": "Green Tea",
+      "tagline": "Light • Clean • Everyday",
+      "shortDescription": "Delicate green tea for a lighter cup.",
+      "description": "<p>Steamed and dried to keep the leaf bright and the cup clean.</p>",
+      "ingredients": "<p>100% natural green tea leaves.</p>",
+      "brewingGuide": "<p>Water at 80°C. Steep two minutes — no longer, or it turns bitter.</p>",
+      "packSizes": [
+        {
+          "label": "100g",
+          "sku": "RGT-100",
+          "price": 220,
+          "isDefault": true
+        }
+      ],
+      "highlights": [
+        {
+          "title": "Antioxidant Rich",
+          "iconName": "heart"
+        }
+      ]
+    }
+  ],
+  "usps": [
+    {
+      "title": "Finest Gardens",
+      "description": "Sourced from the best estates in Sylhet.",
+      "iconName": "mountain"
+    },
+    {
+      "title": "Rich Taste",
+      "description": "Blended for strength and aroma.",
+      "iconName": "coffee"
+    },
+    {
+      "title": "Hygienic & Safe",
+      "description": "ISO-certified processing.",
+      "iconName": "shield-check"
+    },
+    {
+      "title": "Trusted Nationwide",
+      "description": "A dealer network across all 64 districts.",
+      "iconName": "truck"
+    }
+  ],
+  "stats": [
+    {
+      "value": "25+",
+      "label": "Years of Experience",
+      "iconName": "calendar"
+    },
+    {
+      "value": "1000+",
+      "label": "Dealers Nationwide",
+      "iconName": "users"
+    },
+    {
+      "value": "64",
+      "label": "Districts Covered",
+      "iconName": "map"
+    },
+    {
+      "value": "100%",
+      "label": "Natural Ingredients",
+      "iconName": "leaf"
+    }
+  ],
+  "gallery_categories": [
+    {
+      "name": "Tea Gardens",
+      "iconName": "mountain"
+    },
+    {
+      "name": "Manufacturing",
+      "iconName": "factory"
+    },
+    {
+      "name": "Events",
+      "iconName": "calendar"
+    },
+    {
+      "name": "Team",
+      "iconName": "users"
+    }
+  ]
+}

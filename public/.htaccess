@@ -1,0 +1,33 @@
+# Front controller and hardening for the API (doc 13).
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Authorization is stripped by some CGI/FastCGI setups before PHP sees it,
+    # which would silently break every authenticated route.
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # Anything that is not a real file or directory goes to the front controller.
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ index.php [QSA,L]
+</IfModule>
+
+# Dotfiles are never served. Belt and braces: .env lives above this directory
+# and should be unreachable anyway, but document roots get misconfigured.
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+
+<FilesMatch "\.(env|ini|log|sh|sql|json|lock|neon|dist)$">
+    Require all denied
+</FilesMatch>
+
+# Nothing in uploads/ is executable. It holds transient files only; durable
+# media lives in Cloudinary (doc 12).
+<IfModule mod_php.c>
+    php_flag engine off
+</IfModule>
+
+Options -Indexes

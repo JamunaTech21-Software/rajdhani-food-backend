@@ -1,0 +1,21 @@
+# Secrets — never commit. Doc section 15: .env lives outside public/ and never leaves the server.
+.env
+
+# Dependencies
+/vendor/
+
+# Runtime writables
+/storage/logs/*
+!/storage/logs/.gitkeep
+/storage/cache/*
+!/storage/cache/.gitkeep
+/public/uploads/*
+!/public/uploads/.gitkeep
+
+# Tool caches
+.php-cs-fixer.cache
+.phpunit.cache/
+.phpunit.result.cache
+
+# OS / editor
+.DS_Store
