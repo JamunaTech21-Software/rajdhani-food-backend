@@ -20,6 +20,11 @@ return [
     // CORS check. The default matches this repo's local dev admin port.
     'admin_url' => Env::get('ADMIN_URL', 'http://localhost:5174'),
 
+    // The customer site's own base URL — same reasoning as `admin_url`
+    // above. Needed only to build absolute `<loc>` URLs in the `sitemap.xml`
+    // this backend generates (RTPP-36, §14.3).
+    'site_url' => Env::get('SITE_URL', 'http://localhost:5173'),
+
     // Every route in section 9 sits under this prefix.
     'api_prefix' => '/api/v1',
 

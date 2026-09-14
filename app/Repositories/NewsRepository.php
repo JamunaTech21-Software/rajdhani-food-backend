@@ -62,6 +62,24 @@ final class NewsRepository extends Repository
         );
     }
 
+    /**
+     * Every published post's slug and last-modified time — `sitemap.xml`
+     * (doc §14.3; RTPP-36). Same visibility rule as `publicFeatured()`:
+     * published and already at or past its publish time.
+     *
+     * @return list<array{slug:string,updated_at:string}>
+     */
+    public function publishedSlugs(): array
+    {
+        /** @var list<array{slug:string,updated_at:string}> */
+        return $this->all(
+            "SELECT slug, updated_at FROM news_posts
+              WHERE deleted_at IS NULL AND status = 'PUBLISHED' AND published_at <= :now
+              ORDER BY slug",
+            [':now' => $this->now()],
+        );
+    }
+
     public function mediaAssetExists(string $mediaId): bool
     {
         return $this->scalar('SELECT id FROM media_assets WHERE id = :id', [':id' => $mediaId]) !== null;

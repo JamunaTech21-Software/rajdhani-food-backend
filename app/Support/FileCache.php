@@ -15,8 +15,11 @@ namespace Rajdhani\Support;
  * **Every read failure returns a miss rather than throwing.** A corrupt or
  * half-written cache file must degrade into "fetch it again", never into a 500
  * on a login attempt.
+ *
+ * Implements `CacheStore` (RTPP-36) — this is the always-available default
+ * that `CacheStoreFactory` falls back to when Redis isn't configured.
  */
-final class FileCache
+final class FileCache implements CacheStore
 {
     public function __construct(private readonly ?string $directory = null)
     {

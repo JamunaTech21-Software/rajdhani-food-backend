@@ -187,6 +187,31 @@ trait ValidatesInput
         return $value;
     }
 
+    /**
+     * A `Y-m-d` date or a full ISO 8601 timestamp — the two shapes a date-range
+     * query filter needs to accept (RTPP-35's audit log query, and whatever
+     * else eventually wants "from"/"to").
+     *
+     * @param array<string,mixed> $input
+     */
+    private function optionalDate(array $input, string $field): ?string
+    {
+        $value = $this->optionalText($input, $field, 32);
+
+        if ($value === null) {
+            return null;
+        }
+
+        $valid = \DateTimeImmutable::createFromFormat('!Y-m-d', $value) !== false
+            || \DateTimeImmutable::createFromFormat(\DateTimeInterface::ATOM, $value) !== false;
+
+        if (!$valid) {
+            throw $this->invalid($field, 'Expected a date as YYYY-MM-DD or a full ISO 8601 timestamp');
+        }
+
+        return $value;
+    }
+
     private function invalid(string $field, string $message): ApiError
     {
         return ApiError::validation('Some fields need attention', [['field' => $field, 'message' => $message]]);

@@ -1699,6 +1699,211 @@ cleaned from the dev database afterward. 13 new tests: 9 in
 
 ---
 
+## Audit logging of admin actions (Phase 2, RTPP-35)
+
+One `AuditLog` middleware instance on every admin mutation route — 87 of
+them, across all 24 mutable admin resources — each writing exactly one row
+to the `audit_logs` table the schema already had from `001_core_accounts.sql`.
+Ticket text needed one fix before starting: it asked the row to also capture
+"brand", which doc §7.4 already retired along with the second brand
+("there is one site, so there is nothing to grant access to") — dropped
+from the ticket's scope, matching the same table's own columns, which never
+had one.
+
+**The middleware re-reads the resource, it does not trust the controller's
+return value.** Each mutating route is configured with a `state` closure —
+`fn (Request $r) => (new BannerRepository())->find((string) $r->attribute('id'))`
+— called once before the handler runs and once after. That single design
+choice removes an entire category of per-controller special-casing:
+
+- **Every controller's response shape stays irrelevant.** Some return the
+  row directly, some wrap it in `['data' => …]`, `SettingsController`
+  returns something else again — none of that matters, because "after" is
+  read fresh from the resource's own repository, not parsed out of whatever
+  the controller happened to hand back.
+- **A delete needs no DELETE-specific branch.** The identical closure that
+  found the row *before* the handler ran finds nothing the second time,
+  because every `find()` in this codebase already excludes `deleted_at` —
+  true whether the resource soft-deletes (banners, products, categories) or
+  hard-deletes (the five flat MARKETING/CONTENT tables, which have no
+  `deleted_at` column at all). `after: null` falls out for free either way.
+- **A create still has no "before"** — nothing to re-read before a row
+  exists — so `after` there is the raw handler result, which for every
+  `create` in this codebase already is the full created row.
+
+**`AuditDiff::compact()` is what satisfies the ticket's "compactly enough
+not to bloat the table" requirement**: before and after are reduced to only
+the fields that actually changed. A status toggle on a news post no longer
+copies that post's entire rich-text body into `before_json`/`after_json` —
+proved live below with a real banner edit that changed one field and left
+every other column, including `title`, out of both sides of the diff.
+
+**Three shapes beyond the ordinary `find($id)` case, each handled by a
+constructor parameter rather than a special resource type:**
+
+- *Nested children* (a product's pack size, highlight, or image) — the
+  route captures two ids, and the one that names *this* row is not the
+  route's `:id`. `idAttribute: 'packSizeId'` tells the middleware which
+  route attribute is this resource's own id, and the `state` closure reads
+  both: `(new ProductRepository())->findPackSize($productId, $packSizeId)`.
+- *Singletons* (`SiteProfile`, `Settings`) — no id in the route at all.
+  `singleton: true` forces the before/after re-read anyway. `Settings`
+  updates several keys in one `PUT`, so its `state` closure returns the
+  *whole* key/value map (`array_column($repo->listAll(), 'value', 'key')`)
+  and the diff naturally narrows to only the keys that were actually sent.
+- *Bulk and reorder routes* (`/reorder`, `/reviews/bulk-approve`, …) — no
+  single id to re-read, so `before` is always null and `after` is whatever
+  the handler returned; `action` is overridden explicitly (`reorder`,
+  `bulk_approve`) since the default HTTP-verb-derived action (`update`)
+  would be true but uninformative for these.
+
+**A failed mutation writes no row.** `$next($request)` runs inside the
+try-less part of `handle()` — if the service throws (validation, a 404, a
+conflict), the audit write is never reached, matching "one row per
+mutation" read as "per mutation that actually happened," not per attempt.
+
+**Recording the audit row can itself fail without failing the mutation it
+describes** — same trade-off `Mailer` made in RTPP-33: the primary write
+already committed by the time `AuditLog` runs, so a broken connection or a
+constraint violation on `audit_logs` is logged as an error and swallowed,
+not turned into a 500 for a request that otherwise succeeded. This is a
+best-effort guarantee, not a transactional one — a stronger guarantee would
+require folding the audit insert into each service's own transaction, which
+this ticket does not do.
+
+**One cosmetic wrinkle, not a correctness bug, worth naming**: `before`
+comes from a raw repository row (an `is_active` column reads back as `1`),
+while a create's `after` comes from the controller's already-cast response
+(`is_active: true`). Both mean the same thing; the JSON *type* differs
+depending on which side of the diff produced it. Normalising that would
+mean touching every repository's `find()`, which is out of scope for an
+audit trail whose job is answering "what changed," not enforcing one
+canonical row shape across the codebase.
+
+**Query API**: `GET /admin/audit-logs`, Super Admin only — `Capability::AUDIT_LOG`
+was already `READ`-only in `RolePolicy`, with the exact rationale this
+ticket needed already written there: "the audit log is written by the
+system and by nobody else. A role that could edit it would make it
+worthless as evidence." Filters by `actor` (admin id), `action`, `resource`
+(entity type), and an inclusive `from`/`to` date range — a bare `to` date
+is widened to `23:59:59.999` of that day, since `created_at <= '2026-09-14'`
+would otherwise silently exclude the entire day it names.
+
+Verified live against the running dev server: a real banner subtitle edit
+produced one `banner.update` row whose diff held only `subtitle` and
+`updated_at`, not `title` or any other unchanged column; a create followed
+by a delete on a feature item produced a `featureitem.create` row
+(`before: null`) and a `featureitem.delete` row (`after: null`, `before`
+the full last-known row); a `Settings` update changing one key produced a
+`settings.update` row with `entity_id: null` and a diff narrowed to that
+one key; an `EDITOR` token was correctly refused with `403 FORBIDDEN` on
+the query endpoint; a malformed `from` date was rejected `422`; an inclusive
+same-day `from`/`to` range found the day's rows. Test data reverted
+afterward — the banner's subtitle and the setting's value were restored to
+what they were before. 18 new tests: `tests/Unit/AuditDiffTest.php` (the
+compaction rule in isolation), `tests/Feature/AuditLogTest.php` (the
+middleware against a real `audit_logs` table), `tests/Feature/AuditServiceTest.php`
+(the query API's filters, pagination, and date handling).
+
+---
+
+## Aggregated payloads, dashboard summary, cache purge (Phase 2, RTPP-36)
+
+Three pieces the ticket named — `GET /public/home`, `GET /admin/dashboard/summary`,
+`POST /admin/cache/purge` — plus the nightly `sitemap.xml` job the doc's own
+`app/Jobs/` tree already listed (`SitemapBuild.php`) as this ticket's job to build.
+
+**`/public/home`'s ingredient list matches the route's own doc row** —
+"banners, featured products, stats, news, testimonials" — deliberately
+narrower than §10.1's full page description, which also lists a `HOME_USP`
+feature-item strip and a `PageBlock` welcome block. Neither has a public
+read path yet: RTPP-24 deliberately deferred all public-facing exposure of
+feature items, process steps, certifications and page blocks, and that
+backlog (`/public/features`, `/public/process`, `/public/stats` as its own
+route, `/public/certifications`, `/public/testimonials` as its own route,
+`/public/page-blocks/:pageKey`, `/public/seo/:pageKey` — all present in
+§9.3's route table, none built) is still open. Building it was never this
+ticket's scope; `HomeService` adds two narrow repository methods
+(`StatCounterRepository::publicByGroup()`, `TestimonialRepository::publicPublished()`)
+that read just enough of those two tables to feed the home aggregate,
+without standing up the standalone endpoints RTPP-24 left undone.
+
+**`GET /public/layout` is deliberately untouched.** The ticket's own scope
+line says so ("the companion `GET /public/layout` belongs to RTPP-14"), and
+there's a concrete reason not to second-guess that: `SiteProfileService`
+already has a passing test — `testChangingAColourChangesWhatTheEndpointReturns`
+— asserting a colour change is visible on the very next request, satisfying
+doc item 2 of §18 ("no deployment needed"). Adding a TTL cache there would
+have weakened a guarantee this ticket was never asked to touch, just to make
+one more endpoint marginally faster.
+
+**Cache design**: a `CacheStore` interface, the same interface-plus-fake
+shape as `RecaptchaClient`/`JwkSource` earlier in this phase. `FileCache`
+already existed — built earlier for Google's JWKS lookup, its own class doc
+already saying "later the rendered layout" — and now implements this
+interface, staying the default everywhere. `RedisCacheStore` is the real, working alternative
+`REDIS_URL` switches on — gated behind `extension_loaded('redis')` so a
+leftover config value on a host without the extension can't break anything.
+Every one of its methods fails to a miss/no-op on any error, including
+"the class doesn't exist": PHP treats a missing class as a catchable `Error`
+since PHP 7, which lands in the same `catch (Throwable)` a real connection
+refusal would — proved by a real unit test in this project's own
+environment, which has no `redis` extension installed. `/public/home` caches
+for 120 seconds; `POST /admin/cache/purge` forgets it immediately on demand.
+Verified live: a banner edit stayed invisible on `/public/home` until purge,
+then appeared immediately after.
+
+**`sitemap.xml`** is generated from currently published products,
+categories and news, plus a judgement-call list of static paths (the doc
+confirms three page-key strings directly — `about`, `quality`, `dealer` —
+and names the rest of the modules; this backend has no way to confirm the
+front-end's actual route slugs, doc §19 deviation 7). Written straight to
+`public/sitemap.xml` — the one web-exposed directory — via the same
+write-then-rename pattern `FileCache` already uses, so a concurrent request
+never sees a half-written file. Both `POST /admin/cache/purge` and the new
+nightly `bin/sitemap-build.php` (`Jobs\SitemapBuild`) call the same
+`SitemapService`; the cron entry is deliberately a backstop for a publish
+that forgot to purge, not the primary mechanism.
+
+**A real doc gap closed along the way**: `/admin/cache/purge` was
+"Editor+" in §9's route table but had no row in §7.3's permission matrix —
+added a `CACHE` capability (`WRITE` for Editor and Super Admin, none for
+Sales) to both `RolePolicy` and the document's table, the same "codify what
+the route table already implied" move as RTPP-35's audit-log capability.
+Also dropped "and trigger a prerender refresh" from that same route-table
+row — a Next.js-era phrase the doc's own §14.3 rewrite (Next.js → Vite SPA)
+never updated; there is no prerendered output left to refresh.
+
+**Dashboard summary** counts map to each table's own not-yet-actioned
+status (`NEW` enquiries, `SUBMITTED` applications — that enum has no literal
+`NEW` — `UNREAD` messages, `PENDING` reviews), a 30-day zero-filled
+day-by-day chart across the three submission tables, and the ten most
+recent leads merged across all three and re-sorted. Sales gets everything
+except `pending_reviews`, which is omitted from the response entirely
+rather than sent as a number a Sales admin has no `REVIEWS` capability to
+act on. The chart window (30 days) and the recent-leads count (10) are
+undocumented display defaults, chosen the same way `Pagination::DEFAULT_LIMIT`
+was — an engineering default, not a `settings` row, since neither is a
+business policy anyone asked to make configurable.
+
+Verified live end-to-end: a real banner edit stayed cached until purge and
+appeared immediately after; a real enquiry submission showed up in the
+dashboard's counts, today's chart bucket, and the recent-leads list within
+the same request cycle; an `EDITOR` token could purge the cache and a
+`SALES` token was correctly refused `403`; a `SALES` dashboard response
+omitted `pending_reviews` while `EDITOR`'s and `SUPER_ADMIN`'s both included
+it. Test data reverted afterward (the banner's subtitle restored, the test
+enquiry deleted, its reference-counter sequence reset, `audit_logs` cleared
+of test noise this session's own earlier live-testing had left behind).
+29 new tests across `tests/Unit/CacheStoreFactoryTest.php`,
+`tests/Unit/RedisCacheStoreTest.php`, `tests/Feature/HomeServiceTest.php`,
+`tests/Feature/DashboardServiceTest.php`, `tests/Feature/SitemapServiceTest.php`,
+`tests/Feature/CachePurgeServiceTest.php`, plus three new cells in the
+existing `RolePolicyTest` matrix for the new `CACHE` capability. No new
+runtime bugs found in existing code this ticket.
+
+---
+
 ## Layout
 
 Only `public/` is web-exposed. Everything else sits above it and is unreachable

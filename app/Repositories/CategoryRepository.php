@@ -74,6 +74,21 @@ final class CategoryRepository extends Repository
     }
 
     /**
+     * Every active category's slug and last-modified time — `sitemap.xml`
+     * (doc §14.3; RTPP-36). Deliberately not `publicPaginate`-shaped: a
+     * sitemap wants every row, unpaginated, and only two columns.
+     *
+     * @return list<array{slug:string,updated_at:string}>
+     */
+    public function activeSlugs(): array
+    {
+        /** @var list<array{slug:string,updated_at:string}> */
+        return $this->all(
+            'SELECT slug, updated_at FROM categories WHERE deleted_at IS NULL AND is_active = 1 ORDER BY slug',
+        );
+    }
+
+    /**
      * @param string|null $excludingId when checking during an update, the
      *                                 category's own current slug must not
      *                                 count as a collision with itself

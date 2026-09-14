@@ -30,13 +30,22 @@ declare(strict_types=1);
  * not contain.
  *
  * Populated from RTPP-14 onward.
+ *
+ * **Every mutating route also carries an `AuditLog` instance** (RTPP-35), last
+ * in the middleware list, configured with a `state` closure that re-reads the
+ * row through the resource's own repository. See that class's doc for why it
+ * is a closure rather than a repository class name, and for the nested-id and
+ * singleton cases below.
  */
 
 use Rajdhani\Auth\Capability;
+use Rajdhani\Controllers\Admin\AuditController;
 use Rajdhani\Controllers\Admin\BannerController;
+use Rajdhani\Controllers\Admin\CacheController;
 use Rajdhani\Controllers\Admin\CategoryController;
 use Rajdhani\Controllers\Admin\CertificationController;
 use Rajdhani\Controllers\Admin\ContactMessageController;
+use Rajdhani\Controllers\Admin\DashboardController;
 use Rajdhani\Controllers\Admin\DealerApplicationController;
 use Rajdhani\Controllers\Admin\DownloadController;
 use Rajdhani\Controllers\Admin\EnquiryController;
@@ -59,10 +68,35 @@ use Rajdhani\Controllers\Admin\SocialLinkController;
 use Rajdhani\Controllers\Admin\StatCounterController;
 use Rajdhani\Controllers\Admin\SubscriberController;
 use Rajdhani\Controllers\Admin\TestimonialController;
+use Rajdhani\Http\Request;
 use Rajdhani\Http\Router;
+use Rajdhani\Middleware\AuditLog;
 use Rajdhani\Middleware\RequireAdmin;
 use Rajdhani\Middleware\RequireRole;
 use Rajdhani\Middleware\RequireSuperAdmin;
+use Rajdhani\Repositories\BannerRepository;
+use Rajdhani\Repositories\CategoryRepository;
+use Rajdhani\Repositories\CertificationRepository;
+use Rajdhani\Repositories\ContactMessageRepository;
+use Rajdhani\Repositories\DealerApplicationRepository;
+use Rajdhani\Repositories\DownloadRepository;
+use Rajdhani\Repositories\EnquiryRepository;
+use Rajdhani\Repositories\FeatureItemRepository;
+use Rajdhani\Repositories\GalleryCategoryRepository;
+use Rajdhani\Repositories\GalleryImageRepository;
+use Rajdhani\Repositories\MediaRepository;
+use Rajdhani\Repositories\MenuLinkRepository;
+use Rajdhani\Repositories\NewsletterSubscriberRepository;
+use Rajdhani\Repositories\NewsRepository;
+use Rajdhani\Repositories\PageBlockRepository;
+use Rajdhani\Repositories\ProcessStepRepository;
+use Rajdhani\Repositories\ProductRepository;
+use Rajdhani\Repositories\ReviewRepository;
+use Rajdhani\Repositories\SettingsRepository;
+use Rajdhani\Repositories\SiteProfileRepository;
+use Rajdhani\Repositories\SocialLinkRepository;
+use Rajdhani\Repositories\StatCounterRepository;
+use Rajdhani\Repositories\TestimonialRepository;
 
 /** @var Router $router */
 
@@ -78,7 +112,11 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->patch(
         '/site-profile',
         Router::to(SiteProfileController::class, 'update'),
-        [RequireAdmin::class, RequireRole::write(Capability::SETTINGS)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::SETTINGS),
+            new AuditLog('SiteProfile', state: fn (Request $r) => (new SiteProfileRepository())->find(), singleton: true),
+        ],
     );
 
     // RTPP-18 — categories. Editor and Super Admin both hold WRITE on
@@ -98,22 +136,30 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->post(
         '/categories',
         Router::to(CategoryController::class, 'store'),
-        [RequireAdmin::class, RequireRole::write(Capability::PRODUCTS)],
+        [RequireAdmin::class, RequireRole::write(Capability::PRODUCTS), new AuditLog('Category')],
     );
     $r->patch(
         '/categories/reorder',
         Router::to(CategoryController::class, 'reorder'),
-        [RequireAdmin::class, RequireRole::write(Capability::PRODUCTS)],
+        [RequireAdmin::class, RequireRole::write(Capability::PRODUCTS), new AuditLog('Category', action: 'reorder')],
     );
     $r->patch(
         '/categories/:id',
         Router::to(CategoryController::class, 'update'),
-        [RequireAdmin::class, RequireRole::write(Capability::PRODUCTS)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::PRODUCTS),
+            new AuditLog('Category', state: fn (Request $r) => (new CategoryRepository())->find((string) $r->attribute('id'))),
+        ],
     );
     $r->delete(
         '/categories/:id',
         Router::to(CategoryController::class, 'destroy'),
-        [RequireAdmin::class, RequireRole::write(Capability::PRODUCTS)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::PRODUCTS),
+            new AuditLog('Category', state: fn (Request $r) => (new CategoryRepository())->find((string) $r->attribute('id'))),
+        ],
     );
 
     // RTPP-19 — products, and the three child collections that make up the
@@ -131,12 +177,12 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->post(
         '/products',
         Router::to(ProductController::class, 'store'),
-        [RequireAdmin::class, RequireRole::write(Capability::PRODUCTS)],
+        [RequireAdmin::class, RequireRole::write(Capability::PRODUCTS), new AuditLog('Product')],
     );
     $r->patch(
         '/products/reorder',
         Router::to(ProductController::class, 'reorder'),
-        [RequireAdmin::class, RequireRole::write(Capability::PRODUCTS)],
+        [RequireAdmin::class, RequireRole::write(Capability::PRODUCTS), new AuditLog('Product', action: 'reorder')],
     );
     $r->get(
         '/products/:id',
@@ -146,12 +192,20 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->patch(
         '/products/:id',
         Router::to(ProductController::class, 'update'),
-        [RequireAdmin::class, RequireRole::write(Capability::PRODUCTS)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::PRODUCTS),
+            new AuditLog('Product', state: fn (Request $r) => (new ProductRepository())->find((string) $r->attribute('id'))),
+        ],
     );
     $r->delete(
         '/products/:id',
         Router::to(ProductController::class, 'destroy'),
-        [RequireAdmin::class, RequireRole::write(Capability::PRODUCTS)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::PRODUCTS),
+            new AuditLog('Product', state: fn (Request $r) => (new ProductRepository())->find((string) $r->attribute('id'))),
+        ],
     );
 
     // Pack sizes
@@ -163,12 +217,12 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->post(
         '/products/:id/pack-sizes',
         Router::to(ProductPackSizeController::class, 'store'),
-        [RequireAdmin::class, RequireRole::write(Capability::PRODUCTS)],
+        [RequireAdmin::class, RequireRole::write(Capability::PRODUCTS), new AuditLog('ProductPackSize')],
     );
     $r->patch(
         '/products/:id/pack-sizes/reorder',
         Router::to(ProductPackSizeController::class, 'reorder'),
-        [RequireAdmin::class, RequireRole::write(Capability::PRODUCTS)],
+        [RequireAdmin::class, RequireRole::write(Capability::PRODUCTS), new AuditLog('ProductPackSize', action: 'reorder')],
     );
     $r->get(
         '/products/:id/pack-sizes/:packSizeId',
@@ -178,12 +232,28 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->patch(
         '/products/:id/pack-sizes/:packSizeId',
         Router::to(ProductPackSizeController::class, 'update'),
-        [RequireAdmin::class, RequireRole::write(Capability::PRODUCTS)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::PRODUCTS),
+            new AuditLog(
+                'ProductPackSize',
+                state: fn (Request $r) => (new ProductRepository())->findPackSize((string) $r->attribute('id'), (string) $r->attribute('packSizeId')),
+                idAttribute: 'packSizeId',
+            ),
+        ],
     );
     $r->delete(
         '/products/:id/pack-sizes/:packSizeId',
         Router::to(ProductPackSizeController::class, 'destroy'),
-        [RequireAdmin::class, RequireRole::write(Capability::PRODUCTS)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::PRODUCTS),
+            new AuditLog(
+                'ProductPackSize',
+                state: fn (Request $r) => (new ProductRepository())->findPackSize((string) $r->attribute('id'), (string) $r->attribute('packSizeId')),
+                idAttribute: 'packSizeId',
+            ),
+        ],
     );
 
     // Highlights
@@ -195,12 +265,12 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->post(
         '/products/:id/highlights',
         Router::to(ProductHighlightController::class, 'store'),
-        [RequireAdmin::class, RequireRole::write(Capability::PRODUCTS)],
+        [RequireAdmin::class, RequireRole::write(Capability::PRODUCTS), new AuditLog('ProductHighlight')],
     );
     $r->patch(
         '/products/:id/highlights/reorder',
         Router::to(ProductHighlightController::class, 'reorder'),
-        [RequireAdmin::class, RequireRole::write(Capability::PRODUCTS)],
+        [RequireAdmin::class, RequireRole::write(Capability::PRODUCTS), new AuditLog('ProductHighlight', action: 'reorder')],
     );
     $r->get(
         '/products/:id/highlights/:highlightId',
@@ -210,12 +280,28 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->patch(
         '/products/:id/highlights/:highlightId',
         Router::to(ProductHighlightController::class, 'update'),
-        [RequireAdmin::class, RequireRole::write(Capability::PRODUCTS)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::PRODUCTS),
+            new AuditLog(
+                'ProductHighlight',
+                state: fn (Request $r) => (new ProductRepository())->findHighlight((string) $r->attribute('id'), (string) $r->attribute('highlightId')),
+                idAttribute: 'highlightId',
+            ),
+        ],
     );
     $r->delete(
         '/products/:id/highlights/:highlightId',
         Router::to(ProductHighlightController::class, 'destroy'),
-        [RequireAdmin::class, RequireRole::write(Capability::PRODUCTS)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::PRODUCTS),
+            new AuditLog(
+                'ProductHighlight',
+                state: fn (Request $r) => (new ProductRepository())->findHighlight((string) $r->attribute('id'), (string) $r->attribute('highlightId')),
+                idAttribute: 'highlightId',
+            ),
+        ],
     );
 
     // Images
@@ -227,12 +313,12 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->post(
         '/products/:id/images',
         Router::to(ProductImageController::class, 'store'),
-        [RequireAdmin::class, RequireRole::write(Capability::PRODUCTS)],
+        [RequireAdmin::class, RequireRole::write(Capability::PRODUCTS), new AuditLog('ProductImage')],
     );
     $r->patch(
         '/products/:id/images/reorder',
         Router::to(ProductImageController::class, 'reorder'),
-        [RequireAdmin::class, RequireRole::write(Capability::PRODUCTS)],
+        [RequireAdmin::class, RequireRole::write(Capability::PRODUCTS), new AuditLog('ProductImage', action: 'reorder')],
     );
     $r->get(
         '/products/:id/images/:imageId',
@@ -242,12 +328,28 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->patch(
         '/products/:id/images/:imageId',
         Router::to(ProductImageController::class, 'update'),
-        [RequireAdmin::class, RequireRole::write(Capability::PRODUCTS)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::PRODUCTS),
+            new AuditLog(
+                'ProductImage',
+                state: fn (Request $r) => (new ProductRepository())->findImage((string) $r->attribute('id'), (string) $r->attribute('imageId')),
+                idAttribute: 'imageId',
+            ),
+        ],
     );
     $r->delete(
         '/products/:id/images/:imageId',
         Router::to(ProductImageController::class, 'destroy'),
-        [RequireAdmin::class, RequireRole::write(Capability::PRODUCTS)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::PRODUCTS),
+            new AuditLog(
+                'ProductImage',
+                state: fn (Request $r) => (new ProductRepository())->findImage((string) $r->attribute('id'), (string) $r->attribute('imageId')),
+                idAttribute: 'imageId',
+            ),
+        ],
     );
 
     // RTPP-21 — signed direct-to-Cloudinary upload. Gated at `own()`, not
@@ -266,7 +368,7 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->post(
         '/media',
         Router::to(MediaController::class, 'store'),
-        [RequireAdmin::class, RequireRole::own(Capability::MEDIA)],
+        [RequireAdmin::class, RequireRole::own(Capability::MEDIA), new AuditLog('Media')],
     );
 
     // RTPP-22 — this is the route `own()` was actually written for: an
@@ -276,7 +378,11 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->delete(
         '/media/:id',
         Router::to(MediaController::class, 'destroy'),
-        [RequireAdmin::class, RequireRole::own(Capability::MEDIA)],
+        [
+            RequireAdmin::class,
+            RequireRole::own(Capability::MEDIA),
+            new AuditLog('Media', state: fn (Request $r) => (new MediaRepository())->find((string) $r->attribute('id'))),
+        ],
     );
 
     // RTPP-23 — banners. §7.3's "Banners & page content" row is CONTENT:
@@ -291,12 +397,12 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->post(
         '/banners',
         Router::to(BannerController::class, 'store'),
-        [RequireAdmin::class, RequireRole::write(Capability::CONTENT)],
+        [RequireAdmin::class, RequireRole::write(Capability::CONTENT), new AuditLog('Banner')],
     );
     $r->patch(
         '/banners/reorder',
         Router::to(BannerController::class, 'reorder'),
-        [RequireAdmin::class, RequireRole::write(Capability::CONTENT)],
+        [RequireAdmin::class, RequireRole::write(Capability::CONTENT), new AuditLog('Banner', action: 'reorder')],
     );
     $r->get(
         '/banners/:id',
@@ -306,12 +412,20 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->patch(
         '/banners/:id',
         Router::to(BannerController::class, 'update'),
-        [RequireAdmin::class, RequireRole::write(Capability::CONTENT)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::CONTENT),
+            new AuditLog('Banner', state: fn (Request $r) => (new BannerRepository())->find((string) $r->attribute('id'))),
+        ],
     );
     $r->delete(
         '/banners/:id',
         Router::to(BannerController::class, 'destroy'),
-        [RequireAdmin::class, RequireRole::write(Capability::CONTENT)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::CONTENT),
+            new AuditLog('Banner', state: fn (Request $r) => (new BannerRepository())->find((string) $r->attribute('id'))),
+        ],
     );
 
     // RTPP-24 — the content module: five flat, sortable resources gated at
@@ -331,12 +445,12 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->post(
         '/feature-items',
         Router::to(FeatureItemController::class, 'store'),
-        [RequireAdmin::class, RequireRole::write(Capability::MARKETING)],
+        [RequireAdmin::class, RequireRole::write(Capability::MARKETING), new AuditLog('FeatureItem')],
     );
     $r->patch(
         '/feature-items/reorder',
         Router::to(FeatureItemController::class, 'reorder'),
-        [RequireAdmin::class, RequireRole::write(Capability::MARKETING)],
+        [RequireAdmin::class, RequireRole::write(Capability::MARKETING), new AuditLog('FeatureItem', action: 'reorder')],
     );
     $r->get(
         '/feature-items/:id',
@@ -346,12 +460,20 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->patch(
         '/feature-items/:id',
         Router::to(FeatureItemController::class, 'update'),
-        [RequireAdmin::class, RequireRole::write(Capability::MARKETING)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::MARKETING),
+            new AuditLog('FeatureItem', state: fn (Request $r) => (new FeatureItemRepository())->find((string) $r->attribute('id'))),
+        ],
     );
     $r->delete(
         '/feature-items/:id',
         Router::to(FeatureItemController::class, 'destroy'),
-        [RequireAdmin::class, RequireRole::write(Capability::MARKETING)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::MARKETING),
+            new AuditLog('FeatureItem', state: fn (Request $r) => (new FeatureItemRepository())->find((string) $r->attribute('id'))),
+        ],
     );
 
     // Process steps
@@ -363,12 +485,12 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->post(
         '/process-steps',
         Router::to(ProcessStepController::class, 'store'),
-        [RequireAdmin::class, RequireRole::write(Capability::MARKETING)],
+        [RequireAdmin::class, RequireRole::write(Capability::MARKETING), new AuditLog('ProcessStep')],
     );
     $r->patch(
         '/process-steps/reorder',
         Router::to(ProcessStepController::class, 'reorder'),
-        [RequireAdmin::class, RequireRole::write(Capability::MARKETING)],
+        [RequireAdmin::class, RequireRole::write(Capability::MARKETING), new AuditLog('ProcessStep', action: 'reorder')],
     );
     $r->get(
         '/process-steps/:id',
@@ -378,12 +500,20 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->patch(
         '/process-steps/:id',
         Router::to(ProcessStepController::class, 'update'),
-        [RequireAdmin::class, RequireRole::write(Capability::MARKETING)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::MARKETING),
+            new AuditLog('ProcessStep', state: fn (Request $r) => (new ProcessStepRepository())->find((string) $r->attribute('id'))),
+        ],
     );
     $r->delete(
         '/process-steps/:id',
         Router::to(ProcessStepController::class, 'destroy'),
-        [RequireAdmin::class, RequireRole::write(Capability::MARKETING)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::MARKETING),
+            new AuditLog('ProcessStep', state: fn (Request $r) => (new ProcessStepRepository())->find((string) $r->attribute('id'))),
+        ],
     );
 
     // Stat counters
@@ -395,12 +525,12 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->post(
         '/stat-counters',
         Router::to(StatCounterController::class, 'store'),
-        [RequireAdmin::class, RequireRole::write(Capability::MARKETING)],
+        [RequireAdmin::class, RequireRole::write(Capability::MARKETING), new AuditLog('StatCounter')],
     );
     $r->patch(
         '/stat-counters/reorder',
         Router::to(StatCounterController::class, 'reorder'),
-        [RequireAdmin::class, RequireRole::write(Capability::MARKETING)],
+        [RequireAdmin::class, RequireRole::write(Capability::MARKETING), new AuditLog('StatCounter', action: 'reorder')],
     );
     $r->get(
         '/stat-counters/:id',
@@ -410,12 +540,20 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->patch(
         '/stat-counters/:id',
         Router::to(StatCounterController::class, 'update'),
-        [RequireAdmin::class, RequireRole::write(Capability::MARKETING)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::MARKETING),
+            new AuditLog('StatCounter', state: fn (Request $r) => (new StatCounterRepository())->find((string) $r->attribute('id'))),
+        ],
     );
     $r->delete(
         '/stat-counters/:id',
         Router::to(StatCounterController::class, 'destroy'),
-        [RequireAdmin::class, RequireRole::write(Capability::MARKETING)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::MARKETING),
+            new AuditLog('StatCounter', state: fn (Request $r) => (new StatCounterRepository())->find((string) $r->attribute('id'))),
+        ],
     );
 
     // Certifications
@@ -427,12 +565,12 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->post(
         '/certifications',
         Router::to(CertificationController::class, 'store'),
-        [RequireAdmin::class, RequireRole::write(Capability::MARKETING)],
+        [RequireAdmin::class, RequireRole::write(Capability::MARKETING), new AuditLog('Certification')],
     );
     $r->patch(
         '/certifications/reorder',
         Router::to(CertificationController::class, 'reorder'),
-        [RequireAdmin::class, RequireRole::write(Capability::MARKETING)],
+        [RequireAdmin::class, RequireRole::write(Capability::MARKETING), new AuditLog('Certification', action: 'reorder')],
     );
     $r->get(
         '/certifications/:id',
@@ -442,12 +580,20 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->patch(
         '/certifications/:id',
         Router::to(CertificationController::class, 'update'),
-        [RequireAdmin::class, RequireRole::write(Capability::MARKETING)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::MARKETING),
+            new AuditLog('Certification', state: fn (Request $r) => (new CertificationRepository())->find((string) $r->attribute('id'))),
+        ],
     );
     $r->delete(
         '/certifications/:id',
         Router::to(CertificationController::class, 'destroy'),
-        [RequireAdmin::class, RequireRole::write(Capability::MARKETING)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::MARKETING),
+            new AuditLog('Certification', state: fn (Request $r) => (new CertificationRepository())->find((string) $r->attribute('id'))),
+        ],
     );
 
     // Testimonials
@@ -459,12 +605,12 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->post(
         '/testimonials',
         Router::to(TestimonialController::class, 'store'),
-        [RequireAdmin::class, RequireRole::write(Capability::MARKETING)],
+        [RequireAdmin::class, RequireRole::write(Capability::MARKETING), new AuditLog('Testimonial')],
     );
     $r->patch(
         '/testimonials/reorder',
         Router::to(TestimonialController::class, 'reorder'),
-        [RequireAdmin::class, RequireRole::write(Capability::MARKETING)],
+        [RequireAdmin::class, RequireRole::write(Capability::MARKETING), new AuditLog('Testimonial', action: 'reorder')],
     );
     $r->get(
         '/testimonials/:id',
@@ -474,12 +620,20 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->patch(
         '/testimonials/:id',
         Router::to(TestimonialController::class, 'update'),
-        [RequireAdmin::class, RequireRole::write(Capability::MARKETING)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::MARKETING),
+            new AuditLog('Testimonial', state: fn (Request $r) => (new TestimonialRepository())->find((string) $r->attribute('id'))),
+        ],
     );
     $r->delete(
         '/testimonials/:id',
         Router::to(TestimonialController::class, 'destroy'),
-        [RequireAdmin::class, RequireRole::write(Capability::MARKETING)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::MARKETING),
+            new AuditLog('Testimonial', state: fn (Request $r) => (new TestimonialRepository())->find((string) $r->attribute('id'))),
+        ],
     );
 
     // Page blocks
@@ -491,12 +645,12 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->post(
         '/page-blocks',
         Router::to(PageBlockController::class, 'store'),
-        [RequireAdmin::class, RequireRole::write(Capability::CONTENT)],
+        [RequireAdmin::class, RequireRole::write(Capability::CONTENT), new AuditLog('PageBlock')],
     );
     $r->patch(
         '/page-blocks/reorder',
         Router::to(PageBlockController::class, 'reorder'),
-        [RequireAdmin::class, RequireRole::write(Capability::CONTENT)],
+        [RequireAdmin::class, RequireRole::write(Capability::CONTENT), new AuditLog('PageBlock', action: 'reorder')],
     );
     $r->get(
         '/page-blocks/:id',
@@ -506,12 +660,20 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->patch(
         '/page-blocks/:id',
         Router::to(PageBlockController::class, 'update'),
-        [RequireAdmin::class, RequireRole::write(Capability::CONTENT)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::CONTENT),
+            new AuditLog('PageBlock', state: fn (Request $r) => (new PageBlockRepository())->find((string) $r->attribute('id'))),
+        ],
     );
     $r->delete(
         '/page-blocks/:id',
         Router::to(PageBlockController::class, 'destroy'),
-        [RequireAdmin::class, RequireRole::write(Capability::CONTENT)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::CONTENT),
+            new AuditLog('PageBlock', state: fn (Request $r) => (new PageBlockRepository())->find((string) $r->attribute('id'))),
+        ],
     );
 
     // RTPP-25 — gallery. §7.3's GALLERY row is its own capability, WRITE for
@@ -530,12 +692,12 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->post(
         '/gallery/categories',
         Router::to(GalleryCategoryController::class, 'store'),
-        [RequireAdmin::class, RequireRole::write(Capability::GALLERY)],
+        [RequireAdmin::class, RequireRole::write(Capability::GALLERY), new AuditLog('GalleryCategory')],
     );
     $r->patch(
         '/gallery/categories/reorder',
         Router::to(GalleryCategoryController::class, 'reorder'),
-        [RequireAdmin::class, RequireRole::write(Capability::GALLERY)],
+        [RequireAdmin::class, RequireRole::write(Capability::GALLERY), new AuditLog('GalleryCategory', action: 'reorder')],
     );
     $r->get(
         '/gallery/categories/:id',
@@ -545,12 +707,20 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->patch(
         '/gallery/categories/:id',
         Router::to(GalleryCategoryController::class, 'update'),
-        [RequireAdmin::class, RequireRole::write(Capability::GALLERY)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::GALLERY),
+            new AuditLog('GalleryCategory', state: fn (Request $r) => (new GalleryCategoryRepository())->find((string) $r->attribute('id'))),
+        ],
     );
     $r->delete(
         '/gallery/categories/:id',
         Router::to(GalleryCategoryController::class, 'destroy'),
-        [RequireAdmin::class, RequireRole::write(Capability::GALLERY)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::GALLERY),
+            new AuditLog('GalleryCategory', state: fn (Request $r) => (new GalleryCategoryRepository())->find((string) $r->attribute('id'))),
+        ],
     );
 
     // Gallery images. `/bulk` is POST-only and a distinct literal segment from
@@ -565,17 +735,17 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->post(
         '/gallery/images',
         Router::to(GalleryImageController::class, 'store'),
-        [RequireAdmin::class, RequireRole::write(Capability::GALLERY)],
+        [RequireAdmin::class, RequireRole::write(Capability::GALLERY), new AuditLog('GalleryImage')],
     );
     $r->post(
         '/gallery/images/bulk',
         Router::to(GalleryImageController::class, 'bulkStore'),
-        [RequireAdmin::class, RequireRole::write(Capability::GALLERY)],
+        [RequireAdmin::class, RequireRole::write(Capability::GALLERY), new AuditLog('GalleryImage', action: 'bulk_create')],
     );
     $r->patch(
         '/gallery/images/reorder',
         Router::to(GalleryImageController::class, 'reorder'),
-        [RequireAdmin::class, RequireRole::write(Capability::GALLERY)],
+        [RequireAdmin::class, RequireRole::write(Capability::GALLERY), new AuditLog('GalleryImage', action: 'reorder')],
     );
     $r->get(
         '/gallery/images/:id',
@@ -585,12 +755,20 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->patch(
         '/gallery/images/:id',
         Router::to(GalleryImageController::class, 'update'),
-        [RequireAdmin::class, RequireRole::write(Capability::GALLERY)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::GALLERY),
+            new AuditLog('GalleryImage', state: fn (Request $r) => (new GalleryImageRepository())->find((string) $r->attribute('id'))),
+        ],
     );
     $r->delete(
         '/gallery/images/:id',
         Router::to(GalleryImageController::class, 'destroy'),
-        [RequireAdmin::class, RequireRole::write(Capability::GALLERY)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::GALLERY),
+            new AuditLog('GalleryImage', state: fn (Request $r) => (new GalleryImageRepository())->find((string) $r->attribute('id'))),
+        ],
     );
 
     // RTPP-26 — news. §7.3's NEWS row is its own capability, WRITE for both
@@ -605,7 +783,7 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->post(
         '/news',
         Router::to(NewsController::class, 'store'),
-        [RequireAdmin::class, RequireRole::write(Capability::NEWS)],
+        [RequireAdmin::class, RequireRole::write(Capability::NEWS), new AuditLog('News')],
     );
     $r->get(
         '/news/:id',
@@ -615,12 +793,20 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->patch(
         '/news/:id',
         Router::to(NewsController::class, 'update'),
-        [RequireAdmin::class, RequireRole::write(Capability::NEWS)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::NEWS),
+            new AuditLog('News', state: fn (Request $r) => (new NewsRepository())->find((string) $r->attribute('id'))),
+        ],
     );
     $r->delete(
         '/news/:id',
         Router::to(NewsController::class, 'destroy'),
-        [RequireAdmin::class, RequireRole::write(Capability::NEWS)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::NEWS),
+            new AuditLog('News', state: fn (Request $r) => (new NewsRepository())->find((string) $r->attribute('id'))),
+        ],
     );
 
     // RTPP-27 — review moderation. §7.3's "Review moderation" row is a
@@ -640,27 +826,40 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->patch(
         '/reviews/bulk-approve',
         Router::to(ReviewController::class, 'bulkApprove'),
-        [RequireAdmin::class, RequireRole::write(Capability::REVIEWS)],
+        [RequireAdmin::class, RequireRole::write(Capability::REVIEWS), new AuditLog('Review', action: 'bulk_approve')],
     );
     $r->patch(
         '/reviews/bulk-reject',
         Router::to(ReviewController::class, 'bulkReject'),
-        [RequireAdmin::class, RequireRole::write(Capability::REVIEWS)],
+        [RequireAdmin::class, RequireRole::write(Capability::REVIEWS), new AuditLog('Review', action: 'bulk_reject')],
     );
     $r->patch(
         '/reviews/:id/approve',
         Router::to(ReviewController::class, 'approve'),
-        [RequireAdmin::class, RequireRole::write(Capability::REVIEWS)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::REVIEWS),
+            new AuditLog('Review', state: fn (Request $r) => (new ReviewRepository())->find((string) $r->attribute('id')), action: 'approve'),
+        ],
     );
     $r->patch(
         '/reviews/:id/reject',
         Router::to(ReviewController::class, 'reject'),
-        [RequireAdmin::class, RequireRole::write(Capability::REVIEWS)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::REVIEWS),
+            new AuditLog('Review', state: fn (Request $r) => (new ReviewRepository())->find((string) $r->attribute('id')), action: 'reject'),
+        ],
     );
     $r->delete(
         '/reviews/:id',
         Router::to(ReviewController::class, 'destroy'),
-        [RequireAdmin::class, RequireRole::write(Capability::REVIEWS), RequireSuperAdmin::class],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::REVIEWS),
+            RequireSuperAdmin::class,
+            new AuditLog('Review', state: fn (Request $r) => (new ReviewRepository())->find((string) $r->attribute('id'))),
+        ],
     );
 
     // RTPP-29 — enquiries. Editor holds READ on ENQUIRIES (sees the leads),
@@ -687,7 +886,11 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->patch(
         '/enquiries/:id',
         Router::to(EnquiryController::class, 'update'),
-        [RequireAdmin::class, RequireRole::write(Capability::ENQUIRIES)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::ENQUIRIES),
+            new AuditLog('Enquiry', state: fn (Request $r) => (new EnquiryRepository())->find((string) $r->attribute('id'))),
+        ],
     );
 
     // RTPP-30 — dealer applications. Same READ/WRITE split as enquiries
@@ -711,7 +914,11 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->patch(
         '/applications/:id',
         Router::to(DealerApplicationController::class, 'update'),
-        [RequireAdmin::class, RequireRole::write(Capability::DEALER_APPLICATIONS)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::DEALER_APPLICATIONS),
+            new AuditLog('DealerApplication', state: fn (Request $r) => (new DealerApplicationRepository())->find((string) $r->attribute('id'))),
+        ],
     );
 
     // RTPP-31 — contact inbox and the newsletter list. Same READ/WRITE split
@@ -726,7 +933,11 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->patch(
         '/messages/:id',
         Router::to(ContactMessageController::class, 'update'),
-        [RequireAdmin::class, RequireRole::write(Capability::CONTACT_MESSAGES)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::CONTACT_MESSAGES),
+            new AuditLog('ContactMessage', state: fn (Request $r) => (new ContactMessageRepository())->find((string) $r->attribute('id'))),
+        ],
     );
     $r->get(
         '/subscribers',
@@ -745,7 +956,12 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->delete(
         '/subscribers/:id',
         Router::to(SubscriberController::class, 'destroy'),
-        [RequireAdmin::class, RequireRole::write(Capability::NEWSLETTER), RequireSuperAdmin::class],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::NEWSLETTER),
+            RequireSuperAdmin::class,
+            new AuditLog('Subscriber', state: fn (Request $r) => (new NewsletterSubscriberRepository())->find((string) $r->attribute('id'))),
+        ],
     );
 
     // RTPP-32 — settings, menu links, social links, downloads. Site profile
@@ -763,7 +979,15 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->put(
         '/settings',
         Router::to(SettingsController::class, 'update'),
-        [RequireAdmin::class, RequireRole::write(Capability::SETTINGS)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::SETTINGS),
+            new AuditLog(
+                'Settings',
+                state: fn (Request $r) => array_column((new SettingsRepository())->listAll(), 'value', 'key'),
+                singleton: true,
+            ),
+        ],
     );
 
     // Menu links and social links: CONTENT, Editor+ (§7.3's "Banners and
@@ -777,12 +1001,12 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->post(
         '/menu-links',
         Router::to(MenuLinkController::class, 'store'),
-        [RequireAdmin::class, RequireRole::write(Capability::CONTENT)],
+        [RequireAdmin::class, RequireRole::write(Capability::CONTENT), new AuditLog('MenuLink')],
     );
     $r->patch(
         '/menu-links/reorder',
         Router::to(MenuLinkController::class, 'reorder'),
-        [RequireAdmin::class, RequireRole::write(Capability::CONTENT)],
+        [RequireAdmin::class, RequireRole::write(Capability::CONTENT), new AuditLog('MenuLink', action: 'reorder')],
     );
     $r->get(
         '/menu-links/:id',
@@ -792,12 +1016,20 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->patch(
         '/menu-links/:id',
         Router::to(MenuLinkController::class, 'update'),
-        [RequireAdmin::class, RequireRole::write(Capability::CONTENT)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::CONTENT),
+            new AuditLog('MenuLink', state: fn (Request $r) => (new MenuLinkRepository())->find((string) $r->attribute('id'))),
+        ],
     );
     $r->delete(
         '/menu-links/:id',
         Router::to(MenuLinkController::class, 'destroy'),
-        [RequireAdmin::class, RequireRole::write(Capability::CONTENT)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::CONTENT),
+            new AuditLog('MenuLink', state: fn (Request $r) => (new MenuLinkRepository())->find((string) $r->attribute('id'))),
+        ],
     );
 
     $r->get(
@@ -808,12 +1040,12 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->post(
         '/social-links',
         Router::to(SocialLinkController::class, 'store'),
-        [RequireAdmin::class, RequireRole::write(Capability::CONTENT)],
+        [RequireAdmin::class, RequireRole::write(Capability::CONTENT), new AuditLog('SocialLink')],
     );
     $r->patch(
         '/social-links/reorder',
         Router::to(SocialLinkController::class, 'reorder'),
-        [RequireAdmin::class, RequireRole::write(Capability::CONTENT)],
+        [RequireAdmin::class, RequireRole::write(Capability::CONTENT), new AuditLog('SocialLink', action: 'reorder')],
     );
     $r->get(
         '/social-links/:id',
@@ -823,12 +1055,20 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->patch(
         '/social-links/:id',
         Router::to(SocialLinkController::class, 'update'),
-        [RequireAdmin::class, RequireRole::write(Capability::CONTENT)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::CONTENT),
+            new AuditLog('SocialLink', state: fn (Request $r) => (new SocialLinkRepository())->find((string) $r->attribute('id'))),
+        ],
     );
     $r->delete(
         '/social-links/:id',
         Router::to(SocialLinkController::class, 'destroy'),
-        [RequireAdmin::class, RequireRole::write(Capability::CONTENT)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::CONTENT),
+            new AuditLog('SocialLink', state: fn (Request $r) => (new SocialLinkRepository())->find((string) $r->attribute('id'))),
+        ],
     );
 
     // Downloads: DOWNLOADS capability — Editor+ write, Sales read (§11's
@@ -841,7 +1081,7 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->post(
         '/downloads',
         Router::to(DownloadController::class, 'store'),
-        [RequireAdmin::class, RequireRole::write(Capability::DOWNLOADS)],
+        [RequireAdmin::class, RequireRole::write(Capability::DOWNLOADS), new AuditLog('Download')],
     );
     $r->get(
         '/downloads/:id',
@@ -851,12 +1091,49 @@ $router->group('/admin', [], static function (Router $r): void {
     $r->patch(
         '/downloads/:id',
         Router::to(DownloadController::class, 'update'),
-        [RequireAdmin::class, RequireRole::write(Capability::DOWNLOADS)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::DOWNLOADS),
+            new AuditLog('Download', state: fn (Request $r) => (new DownloadRepository())->find((string) $r->attribute('id'))),
+        ],
     );
     $r->delete(
         '/downloads/:id',
         Router::to(DownloadController::class, 'destroy'),
-        [RequireAdmin::class, RequireRole::write(Capability::DOWNLOADS)],
+        [
+            RequireAdmin::class,
+            RequireRole::write(Capability::DOWNLOADS),
+            new AuditLog('Download', state: fn (Request $r) => (new DownloadRepository())->find((string) $r->attribute('id'))),
+        ],
+    );
+
+    // RTPP-35 — the audit log query API. Super Admin only (§7.3): the row is
+    // READ, not WRITE, because the log is written by `AuditLog` middleware and
+    // by nobody else — see `RolePolicy`'s class doc for that reasoning.
+    $r->get(
+        '/audit-logs',
+        Router::to(AuditController::class, 'index'),
+        [RequireAdmin::class, RequireRole::read(Capability::AUDIT_LOG)],
+    );
+
+    // RTPP-36 — the dashboard summary. Every role holds DASHBOARD READ
+    // (§7.3); Sales's "leads only" scoping happens inside DashboardService,
+    // not here, same pattern as Sales's dashboard-overview row elsewhere.
+    $r->get(
+        '/dashboard/summary',
+        Router::to(DashboardController::class, 'summary'),
+        [RequireAdmin::class, RequireRole::read(Capability::DASHBOARD)],
+    );
+
+    // RTPP-36 — cache purge and sitemap regeneration, "Editor+" per the
+    // route table (doc §9) — a new CACHE capability, WRITE for Editor and
+    // Super Admin, none for Sales, added to §7.3 alongside this ticket
+    // since the matrix had no row for it yet. Not audit-logged: this
+    // touches no tracked entity's data, only a cache key and a static file.
+    $r->post(
+        '/cache/purge',
+        Router::to(CacheController::class, 'purge'),
+        [RequireAdmin::class, RequireRole::write(Capability::CACHE)],
     );
 });
 

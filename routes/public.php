@@ -17,6 +17,7 @@ use Rajdhani\Controllers\Public\DealerApplicationController;
 use Rajdhani\Controllers\Public\DownloadController;
 use Rajdhani\Controllers\Public\EnquiryController;
 use Rajdhani\Controllers\Public\GalleryController;
+use Rajdhani\Controllers\Public\HomeController;
 use Rajdhani\Controllers\Public\LayoutController;
 use Rajdhani\Controllers\Public\LocationController;
 use Rajdhani\Controllers\Public\NewsController;
@@ -37,6 +38,12 @@ $router->group('/public', [], static function (Router $r): void {
     // unauthenticated and header-free: it is the first call a cold page load
     // makes, before anyone has signed in.
     $r->get('/layout', Router::to(LayoutController::class, 'show'));
+
+    // RTPP-36 — the composed home payload, cached (§14.1). Its own ingredient
+    // list is banners + featured products + stats + news + testimonials —
+    // see HomeService's class doc for why that is narrower than §10.1's full
+    // page description.
+    $r->get('/home', Router::to(HomeController::class, 'show'));
 
     // RTPP-18 — feeds the sticky filter bar (§10.2) and the header Products
     // dropdown (§10.5).

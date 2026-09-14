@@ -22,7 +22,7 @@ use Rajdhani\Auth\RolePolicy;
 final class RolePolicyTest extends TestCase
 {
     /**
-     * Every cell of §7.3. 16 capabilities × 3 roles = 48 assertions of record.
+     * Every cell of §7.3. 17 capabilities × 3 roles = 51 assertions of record.
      *
      * @return array<string,array{Role,Capability,AccessLevel}>
      */
@@ -51,6 +51,7 @@ final class RolePolicyTest extends TestCase
             Capability::ADMIN_USERS->value         => [$w, $n, $n],
             Capability::AUDIT_LOG->value           => [$r, $n, $n],
             Capability::MEDIA->value               => [$w, $o, $n],
+            Capability::CACHE->value               => [$w, $w, $n],
         ];
 
         $roles = [Role::SUPER_ADMIN, Role::EDITOR, Role::SALES];

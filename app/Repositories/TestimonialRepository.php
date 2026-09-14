@@ -38,6 +38,29 @@ final class TestimonialRepository extends Repository
         return $this->scalar('SELECT id FROM media_assets WHERE id = :id', [':id' => $mediaId]) !== null;
     }
 
+    /**
+     * `GET /public/testimonials`, and the home aggregate's testimonials slice
+     * (doc §9.3, §14.1; RTPP-36) — `PUBLISHED` only, with the avatar resolved
+     * to a URL the same way every other public view does (`ProductRepository`'s
+     * `PUBLIC_CARD_COLUMNS`), since the admin's own `find()`/`list()` return
+     * the raw `avatar_id` a public caller has no other way to render.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function publicPublished(int $limit): array
+    {
+        return $this->all(
+            "SELECT t.id, t.author_name, t.author_role, t.quote, t.rating,
+                    m.secure_url AS avatar_url, m.alt_text AS avatar_alt
+               FROM testimonials t
+               LEFT JOIN media_assets m ON m.id = t.avatar_id
+              WHERE t.status = 'PUBLISHED'
+              ORDER BY t.sort_order, t.author_name
+              LIMIT :limit",
+            [':limit' => $limit],
+        );
+    }
+
     /** @param array<string,scalar|null> $fields */
     public function create(array $fields): string
     {

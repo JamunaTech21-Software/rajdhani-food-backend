@@ -35,6 +35,21 @@ final class StatCounterRepository extends Repository
         return $this->one('SELECT ' . self::COLUMNS . ' FROM stat_counters WHERE id = :id', [':id' => $id]);
     }
 
+    /**
+     * The public stats band for one group (doc §9.3 `/public/stats`, §10.1
+     * "Stat counters"; RTPP-36) — unlike `list()`, which the admin screen
+     * uses and which includes inactive rows so they can be re-enabled.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function publicByGroup(string $group): array
+    {
+        return $this->all(
+            'SELECT ' . self::COLUMNS . ' FROM stat_counters WHERE `group` = :group AND is_active = 1 ORDER BY sort_order',
+            [':group' => $group],
+        );
+    }
+
     /** @param array<string,scalar|null> $fields */
     public function create(array $fields): string
     {

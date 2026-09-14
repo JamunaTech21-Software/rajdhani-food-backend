@@ -712,6 +712,33 @@ paths:
                     properties:
                       data: { $ref: '#/components/schemas/Layout' }
 
+  /public/home:
+    get:
+      tags: [Public]
+      summary: The composed home page payload
+      description: |
+        Banners, featured products, stats, news and testimonials in one call
+        (§9.3, §14.1) — narrower than §10.1's full page description, which
+        also lists a feature-item strip and a welcome page block; neither
+        has a public read path yet (RTPP-24 deferred that exposure).
+
+        Cached for 120 seconds (doc §14.1's optional aggregate cache,
+        RTPP-36) — Redis if `REDIS_URL` is configured and the extension is
+        loaded, a local file otherwise; either way `POST /admin/cache/purge`
+        forgets it immediately after a publish.
+      security: []
+      responses:
+        '200':
+          description: The composed home payload.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/EnvelopeSuccess'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/HomePayload' }
+
   /public/categories:
     get:
       tags: [Public]
@@ -5385,6 +5412,124 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '422': { $ref: '#/components/responses/ValidationError' }
 
+  /admin/audit-logs:
+    get:
+      tags: [Admin]
+      summary: Query the audit trail
+      description: |
+        Every admin mutation writes exactly one row here (doc §3.1, §13;
+        RTPP-35) — `AuditLog` middleware, not a controller, so no route can
+        forget to call it. Super Admin only (§7.3): the row is READ, never
+        WRITE, because a role that could edit its own trail would make the
+        trail worthless as evidence.
+
+        `before`/`after` hold only the fields that actually changed between
+        the two reads the middleware took, not the whole row each time — a
+        metadata-only edit on a long news body does not copy that body into
+        this table. A create has `before: null`; a delete has `after: null`.
+      security: [{ adminBearer: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: actor
+          in: query
+          required: false
+          description: Filter to one admin's id.
+          schema: { type: string }
+        - name: action
+          in: query
+          required: false
+          description: Exact match, e.g. `banner.update`.
+          schema: { type: string }
+        - name: resource
+          in: query
+          required: false
+          description: Exact match on entity type, e.g. `Banner`.
+          schema: { type: string }
+        - name: from
+          in: query
+          required: false
+          description: 'Inclusive. `YYYY-MM-DD` or a full ISO 8601 timestamp.'
+          schema: { type: string }
+        - name: to
+          in: query
+          required: false
+          description: 'Inclusive — a bare `YYYY-MM-DD` covers the whole day. `YYYY-MM-DD` or a full ISO 8601 timestamp.'
+          schema: { type: string }
+      responses:
+        '200':
+          description: A page of audit log entries, newest first.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/EnvelopeSuccess'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/AuditLogEntry' }
+                      meta: { $ref: '#/components/schemas/PaginationMeta' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /admin/dashboard/summary:
+    get:
+      tags: [Admin]
+      summary: Dashboard overview
+      description: |
+        Counts of new enquiries, new applications, unread messages, pending
+        reviews and subscribers; a 30-day day-by-day submissions chart; and
+        the most recent leads across enquiries, applications and messages
+        (doc §9, §11; RTPP-36).
+
+        Every role holds `DASHBOARD` READ (§7.3), but Sales is scoped to
+        "leads only": `pending_reviews` is omitted from the counts object
+        entirely for a Sales admin, who holds no `REVIEWS` capability at all.
+      security: [{ adminBearer: [] }]
+      responses:
+        '200':
+          description: The dashboard summary.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/EnvelopeSuccess'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/DashboardSummary' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /admin/cache/purge:
+    post:
+      tags: [Admin]
+      summary: Purge the aggregate cache and regenerate the sitemap
+      description: |
+        "Called on publish" (doc §9): forgets the cached `/public/home`
+        payload and regenerates `public/sitemap.xml` from currently
+        published content (§14.3; RTPP-36). `/public/layout` is untouched —
+        it belongs to RTPP-14 and is never cached (see that endpoint's own
+        description).
+
+        Editor+ (doc §9's route table) — a `CACHE` capability, `WRITE` for
+        Editor and Super Admin, none for Sales, added to §7.3 alongside
+        this ticket.
+      security: [{ adminBearer: [] }]
+      responses:
+        '200':
+          description: Purged.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/EnvelopeSuccess'
+                  - type: object
+                    properties:
+                      data: { type: object, properties: { purged: { type: boolean, const: true } } }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
 components:
 
   securitySchemes:
@@ -7246,3 +7391,103 @@ components:
       type: string
       pattern: '^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$'
       example: '#1B5E20'
+
+    AuditLogEntry:
+      type: object
+      description: One row of `audit_logs` (RTPP-35).
+      properties:
+        id: { type: string }
+        admin_id: { type: [string, 'null'] }
+        admin_name: { type: [string, 'null'], description: 'Null if the admin account has since been removed.' }
+        admin_email: { type: [string, 'null'] }
+        action: { type: string, example: 'banner.update' }
+        entity_type: { type: string, example: 'Banner' }
+        entity_id: { type: [string, 'null'], description: 'Null for a bulk action with no single row, such as a reorder or a bulk-approve.' }
+        before:
+          type: [object, 'null']
+          description: 'Only the fields that changed. Null for a create.'
+          additionalProperties: true
+        after:
+          type: [object, 'null']
+          description: 'Only the fields that changed. Null for a delete.'
+          additionalProperties: true
+        ip_address: { type: [string, 'null'] }
+        created_at: { type: string, format: date-time }
+
+    HomePayload:
+      type: object
+      description: '`GET /public/home`''s composed body (RTPP-36).'
+      properties:
+        banners:
+          type: array
+          items: { $ref: '#/components/schemas/PublicBanner' }
+        featured_products:
+          type: array
+          items: { $ref: '#/components/schemas/ProductCard' }
+        stats:
+          type: array
+          items: { $ref: '#/components/schemas/HomeStat' }
+        news:
+          type: array
+          maxItems: 3
+          items: { $ref: '#/components/schemas/PublicNewsCard' }
+        testimonials:
+          type: array
+          items: { $ref: '#/components/schemas/HomeTestimonial' }
+
+    HomeStat:
+      type: object
+      description: One `StatCounter` row, group `HOME` (doc §10.1).
+      properties:
+        id: { type: string }
+        value: { type: string, example: '25+', description: 'A display string, not a number to compute with.' }
+        label: { type: string }
+        icon_name: { type: [string, 'null'] }
+
+    HomeTestimonial:
+      type: object
+      properties:
+        id: { type: string }
+        author_name: { type: string }
+        author_role: { type: [string, 'null'] }
+        quote: { type: string }
+        rating: { type: [integer, 'null'], minimum: 1, maximum: 5 }
+        avatar:
+          type: [object, 'null']
+          properties:
+            url: { type: string }
+            alt: { type: [string, 'null'] }
+
+    DashboardSummary:
+      type: object
+      description: '`GET /admin/dashboard/summary`''s composed body (doc §9, §11; RTPP-36).'
+      properties:
+        counts:
+          type: object
+          description: '`pending_reviews` is omitted entirely for a Sales admin — see the endpoint description.'
+          properties:
+            new_enquiries: { type: integer }
+            new_applications: { type: integer }
+            unread_messages: { type: integer }
+            pending_reviews: { type: integer }
+            subscribers: { type: integer }
+        chart:
+          type: array
+          description: 30 days, oldest first, zero-filled.
+          items:
+            type: object
+            properties:
+              date: { type: string, format: date }
+              enquiries: { type: integer }
+              applications: { type: integer }
+              messages: { type: integer }
+        recent_leads:
+          type: array
+          items:
+            type: object
+            properties:
+              type: { type: string, enum: [enquiry, dealer_application, contact_message] }
+              id: { type: string }
+              name: { type: string }
+              email: { type: string }
+              created_at: { type: string, format: date-time }

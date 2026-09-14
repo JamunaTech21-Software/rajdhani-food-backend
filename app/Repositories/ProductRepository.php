@@ -239,6 +239,20 @@ final class ProductRepository extends Repository
         );
     }
 
+    /**
+     * Every published product's slug and last-modified time —
+     * `sitemap.xml` (doc §14.3; RTPP-36).
+     *
+     * @return list<array{slug:string,updated_at:string}>
+     */
+    public function publishedSlugs(): array
+    {
+        /** @var list<array{slug:string,updated_at:string}> */
+        return $this->all(
+            "SELECT slug, updated_at FROM products WHERE deleted_at IS NULL AND status = 'PUBLISHED' ORDER BY slug",
+        );
+    }
+
     /** @return list<array<string,mixed>> */
     public function relatedByCategory(string $categoryId, string $excludingProductId, int $limit): array
     {

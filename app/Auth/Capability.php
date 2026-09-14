@@ -30,6 +30,7 @@ enum Capability: string
     case ADMIN_USERS         = 'admin_users';
     case AUDIT_LOG           = 'audit_log';
     case MEDIA               = 'media';
+    case CACHE               = 'cache';
 
     /** The matrix row label, for the permissions payload and for error messages. */
     public function label(): string
@@ -51,6 +52,7 @@ enum Capability: string
             self::ADMIN_USERS         => 'Admin user management',
             self::AUDIT_LOG           => 'Audit log',
             self::MEDIA               => 'Media library',
+            self::CACHE               => 'Cache and sitemap',
         };
     }
 }

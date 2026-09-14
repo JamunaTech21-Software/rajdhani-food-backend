@@ -51,6 +51,7 @@ final class RolePolicy
             // evidence.
             Capability::AUDIT_LOG->value => AccessLevel::READ,
             Capability::MEDIA->value     => AccessLevel::WRITE,
+            Capability::CACHE->value     => AccessLevel::WRITE,
         ],
 
         Role::EDITOR->value => [
@@ -72,6 +73,11 @@ final class RolePolicy
             // The one OWN cell in the whole matrix: an Editor may delete media
             // they uploaded, not media somebody else did.
             Capability::MEDIA->value => AccessLevel::OWN,
+
+            // "Editor+" (doc §9, the `/admin/cache/purge` route table row) —
+            // an Editor publishes content and needs to be able to force a
+            // stale cache/sitemap to refresh without waiting on a Super Admin.
+            Capability::CACHE->value => AccessLevel::WRITE,
         ],
 
         Role::SALES->value => [
