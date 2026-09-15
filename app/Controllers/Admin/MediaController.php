@@ -9,14 +9,27 @@ use Rajdhani\Http\Request;
 use Rajdhani\Services\MediaService;
 
 /**
- * `/admin/media` (doc §12, RTPP-21). Parse, delegate, respond — the signing
- * algorithm and every registration rule live in `MediaService`.
+ * `/admin/media` (doc §11, §12; RTPP-21, RTPP-22, RTPP-91). Parse, delegate,
+ * respond — the signing algorithm and every registration/edit rule live in
+ * `MediaService`.
  */
 final class MediaController
 {
     public function __construct(
         private readonly MediaService $media = new MediaService(),
     ) {
+    }
+
+    /** @return array<string,mixed> */
+    public function index(Request $request): array
+    {
+        return $this->media->paginate($request->query);
+    }
+
+    /** @return array<string,mixed> */
+    public function show(Request $request): array
+    {
+        return $this->media->find($this->id($request));
     }
 
     /** @return array<string,mixed> */
@@ -29,6 +42,12 @@ final class MediaController
     public function store(Request $request): array
     {
         return $this->media->register($this->adminId($request), $request->body);
+    }
+
+    /** @return array<string,mixed> */
+    public function update(Request $request): array
+    {
+        return $this->media->update($this->id($request), $request->body, $this->adminId($request), $this->rowScope($request));
     }
 
     /** @return array<string,mixed> */

@@ -5259,6 +5259,50 @@ paths:
         '422': { $ref: '#/components/responses/ValidationError' }
 
   /admin/media:
+    get:
+      tags: [Admin]
+      summary: The Media Library grid
+      description: |
+        Paginated, newest first (doc §11, §12; RTPP-91). Filterable by
+        `folder` — an exact match on the `rajdhani/{resource}` convention,
+        since assets are never nested deeper than that one segment — and by
+        `type`.
+
+        `READ`, not `own()`: Sales holds no `media` row at all in §7.3
+        (`NONE`), so `read()` already excludes Sales while admitting both a
+        Super Admin (`WRITE` satisfies `READ`) and an Editor (`OWN`
+        satisfies `READ`) — there is no "someone else's row" to hide on a
+        list, only on a mutation.
+      security: [{ adminBearer: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: folder
+          in: query
+          required: false
+          description: Exact match, e.g. `rajdhani/products`.
+          schema: { type: string }
+        - name: type
+          in: query
+          required: false
+          schema: { type: string, enum: [IMAGE, VIDEO, DOCUMENT] }
+      responses:
+        '200':
+          description: A page of media assets.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/EnvelopeSuccess'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/MediaAsset' }
+                      meta: { $ref: '#/components/schemas/PaginationMeta' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
     post:
       tags: [Admin]
       summary: Register an asset after a direct Cloudinary upload
@@ -5310,6 +5354,70 @@ paths:
         '422': { $ref: '#/components/responses/ValidationError' }
 
   /admin/media/{id}:
+    get:
+      tags: [Admin]
+      summary: Read one asset, with where it is used
+      description: |
+        Same `MediaAsset` shape as the list, plus `usage` — every table that
+        currently references this asset (doc §11, §12; RTPP-91), the same
+        data `DELETE`'s `409 CONFLICT` names, offered here proactively so
+        the dashboard can show it before an editor ever attempts to delete.
+      security: [{ adminBearer: [] }]
+      parameters:
+        - $ref: '#/components/parameters/MediaId'
+      responses:
+        '200':
+          description: The asset.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/EnvelopeSuccess'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/MediaAssetWithUsage' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Admin]
+      summary: Edit alt text and/or caption
+      description: |
+        Alt text and caption only (doc §11, §12; RTPP-91) — every other
+        field describes what Cloudinary actually holds (`public_id`,
+        `bytes`, dimensions, …) and re-uploading is the only honest way to
+        change that.
+
+        Gated at the same `own()` threshold as `DELETE` on this route: an
+        Editor may edit only media they themselves uploaded (`403` on
+        someone else's), a Super Admin may edit any asset.
+      security: [{ adminBearer: [] }]
+      parameters:
+        - $ref: '#/components/parameters/MediaId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MediaUpdateInput' }
+      responses:
+        '200':
+          description: Updated.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/EnvelopeSuccess'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/MediaAsset' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403':
+          description: Not this caller's own upload, and they hold only OWN (not WRITE) on media.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EnvelopeError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
     delete:
       tags: [Admin]
       summary: Delete an asset, after checking every table that could reference it
@@ -7230,6 +7338,30 @@ components:
         caption: { type: [string, 'null'] }
         uploaded_by_id: { $ref: '#/components/schemas/Ulid' }
         created_at: { type: string, format: date-time }
+
+    MediaAssetWithUsage:
+      description: '`MediaAsset` plus where it is referenced (RTPP-91) — `GET /admin/media/{id}` only.'
+      allOf:
+        - $ref: '#/components/schemas/MediaAsset'
+        - type: object
+          properties:
+            usage:
+              type: array
+              description: Empty when nothing references this asset — the case `DELETE` would succeed on.
+              items:
+                type: object
+                properties:
+                  table: { type: string, example: categories }
+                  count: { type: integer }
+                  label: { type: string, example: 'category image(s)' }
+
+    MediaUpdateInput:
+      type: object
+      minProperties: 1
+      description: Send at least one of the two. Neither is required on its own.
+      properties:
+        alt_text: { type: [string, 'null'], maxLength: 255 }
+        caption: { type: [string, 'null'], maxLength: 512 }
 
     MediaSignatureInput:
       type: object

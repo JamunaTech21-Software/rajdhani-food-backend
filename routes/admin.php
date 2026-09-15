@@ -352,6 +352,22 @@ $router->group('/admin', [], static function (Router $r): void {
         ],
     );
 
+    // RTPP-91 — the library grid and detail view. READ, not own(): Sales
+    // has no MEDIA row at all (NONE), so read() already excludes Sales while
+    // admitting both Super Admin (WRITE satisfies READ) and Editor (OWN
+    // satisfies READ) — there is no "someone else's row" to hide on a list
+    // or a read, only on a mutation, which is what own() is still for below.
+    $r->get(
+        '/media',
+        Router::to(MediaController::class, 'index'),
+        [RequireAdmin::class, RequireRole::read(Capability::MEDIA)],
+    );
+    $r->get(
+        '/media/:id',
+        Router::to(MediaController::class, 'show'),
+        [RequireAdmin::class, RequireRole::read(Capability::MEDIA)],
+    );
+
     // RTPP-21 — signed direct-to-Cloudinary upload. Gated at `own()`, not
     // `write()`: an Editor's MEDIA cell in §7.3 is OWN, not WRITE (WRITE is
     // Super Admin only), and `own()` is exactly "at least OWN, or a WRITE
@@ -369,6 +385,19 @@ $router->group('/admin', [], static function (Router $r): void {
         '/media',
         Router::to(MediaController::class, 'store'),
         [RequireAdmin::class, RequireRole::own(Capability::MEDIA), new AuditLog('Media')],
+    );
+
+    // RTPP-91 — alt text/caption editing. Same own()/row_scope pattern as
+    // RTPP-22's delete below: an Editor may edit only what they uploaded, a
+    // Super Admin may edit anything.
+    $r->patch(
+        '/media/:id',
+        Router::to(MediaController::class, 'update'),
+        [
+            RequireAdmin::class,
+            RequireRole::own(Capability::MEDIA),
+            new AuditLog('Media', state: fn (Request $r) => (new MediaRepository())->find((string) $r->attribute('id'))),
+        ],
     );
 
     // RTPP-22 — this is the route `own()` was actually written for: an

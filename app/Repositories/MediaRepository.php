@@ -7,13 +7,14 @@ namespace Rajdhani\Repositories;
 use Rajdhani\Helpers\UlidHelper;
 
 /**
- * `media_assets` (doc §8.1, §12; RTPP-21, RTPP-22).
+ * `media_assets` (doc §8.1, §12; RTPP-21, RTPP-22, RTPP-91).
  *
- * Still no `update()` — editing alt text/caption has no caller yet and stays
- * out until one exists. `hardDelete()` and `references()` are RTPP-22's:
- * a real `DELETE`, not a soft delete, because there is nothing to "undelete"
- * once the underlying Cloudinary asset is gone too, and `references()` is
- * what makes that `DELETE` safe to issue at all.
+ * `hardDelete()` and `references()` are RTPP-22's: a real `DELETE`, not a
+ * soft delete, because there is nothing to "undelete" once the underlying
+ * Cloudinary asset is gone too, and `references()` is what makes that
+ * `DELETE` safe to issue at all. `paginate()`/`count()`/`update()` are
+ * RTPP-91's — the library's read/edit path, which had no caller until the
+ * admin dashboard's Media Library screen (RTPP-50) needed one.
  */
 final class MediaRepository extends Repository
 {
@@ -87,6 +88,77 @@ final class MediaRepository extends Repository
     public function find(string $id): ?array
     {
         return $this->one('SELECT ' . self::COLUMNS . ' FROM media_assets WHERE id = :id', [':id' => $id]);
+    }
+
+    /**
+     * The Media Library grid (doc §11, §12; RTPP-91) — newest first, so a
+     * freshly uploaded asset is where an editor expects to find it without
+     * paging.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function paginate(int $limit, int $offset, ?string $folder, ?string $type): array
+    {
+        [$where, $parameters] = $this->listFilter($folder, $type);
+        $parameters[':limit'] = $limit;
+        $parameters[':offset'] = $offset;
+
+        return $this->all(
+            'SELECT ' . self::COLUMNS . " FROM media_assets {$where} ORDER BY created_at DESC LIMIT :limit OFFSET :offset",
+            $parameters,
+        );
+    }
+
+    public function count(?string $folder, ?string $type): int
+    {
+        [$where, $parameters] = $this->listFilter($folder, $type);
+
+        return (int) $this->scalar("SELECT COUNT(*) FROM media_assets {$where}", $parameters);
+    }
+
+    /**
+     * Alt text and caption only — every other column here describes what
+     * Cloudinary actually holds (`public_id`, `bytes`, `width`, …) and
+     * re-uploading is the only honest way to change any of that.
+     *
+     * @param array<string,scalar|null> $fields
+     */
+    public function update(string $id, array $fields): int
+    {
+        if ($fields === []) {
+            return 0;
+        }
+
+        $assignments = [];
+        $parameters = [':id' => $id];
+
+        foreach ($fields as $column => $value) {
+            $assignments[] = $this->quote($column) . ' = :' . $column;
+            $parameters[':' . $column] = $value;
+        }
+
+        return $this->run('UPDATE media_assets SET ' . implode(', ', $assignments) . ' WHERE id = :id', $parameters);
+    }
+
+    /** @return array{0:string,1:array<string,scalar|null>} */
+    private function listFilter(?string $folder, ?string $type): array
+    {
+        $conditions = [];
+        $parameters = [];
+
+        if ($folder !== null) {
+            $conditions[] = 'folder = :folder';
+            $parameters[':folder'] = $folder;
+        }
+
+        if ($type !== null) {
+            $conditions[] = 'type = :type';
+            $parameters[':type'] = $type;
+        }
+
+        $where = $conditions === [] ? '' : 'WHERE ' . implode(' AND ', $conditions);
+
+        return [$where, $parameters];
     }
 
     /**

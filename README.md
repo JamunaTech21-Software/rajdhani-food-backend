@@ -1904,6 +1904,54 @@ runtime bugs found in existing code this ticket.
 
 ---
 
+## Media library query API (Phase 2, RTPP-91)
+
+`GET /admin/media`, `GET /admin/media/:id`, `PATCH /admin/media/:id` —
+the read/edit path RTPP-21/22 never built. `MediaRepository`'s own class
+doc had been saying so explicitly since RTPP-22 shipped: *"Still no
+`update()` — editing alt text/caption has no caller yet and stays out
+until one exists."* The caller that surfaced the gap: **RTPP-50**, the
+admin dashboard's Media Library screen, blocked with no list endpoint to
+build its grid against. No backend ticket owned closing it, so this one
+was opened (**RTPP-91**) rather than reopening either Done ticket.
+
+**Three additions, same shape as everything else in this module**:
+`MediaRepository::paginate()`/`count()` (folder — exact match on the
+`rajdhani/{resource}` convention — and type filters, newest first),
+`MediaRepository::update()` (alt text and caption only; every other column
+describes what Cloudinary actually holds, and re-uploading is the only
+honest way to change that), both wrapped by matching `MediaService`
+methods and thin `MediaController` actions.
+
+**The usage indicator RTPP-50 asks for is not new plumbing** — RTPP-22
+already built `MediaRepository::references()` to answer "what points at
+this asset" for the delete-conflict `409`. `GET /admin/media/:id` just
+calls the same method proactively and returns it as `usage`, so the
+dashboard can show what's using an asset before an editor ever attempts to
+delete it, not only after a refusal.
+
+**Role gating**: `GET` routes use `RequireRole::read(Capability::MEDIA)`,
+not `own()` — Sales holds no `media` row at all in §7.3 (`NONE`), so
+`read()` already excludes Sales while admitting both a Super Admin
+(`WRITE` satisfies `READ`) and an Editor (`OWN` satisfies `READ`); there is
+no "someone else's row" to hide on a list or a read, only on a mutation.
+`PATCH` reuses the exact `own()`/`row_scope` pattern `DELETE` already
+established: an Editor may edit only what they uploaded, a Super Admin may
+edit anything.
+
+Verified live against the running dev server: the grid lists real seeded
+assets with working pagination; folder and type filters both narrow
+correctly, and an unknown type is rejected `422`; a real logo asset's
+detail view correctly showed `usage: [{table: "site_profile", ...}]`; an
+alt-text/caption edit round-tripped and left every Cloudinary-sourced field
+(`public_id`, `secure_url`, `bytes`) untouched; a `SALES` token was refused
+`403` on the list, an `EDITOR` token could list, and an `EDITOR` token was
+correctly refused editing an asset it did not upload. Test data reverted
+afterward. 13 new tests in `tests/Feature/MediaTest.php`, alongside the
+existing RTPP-21/22 coverage in the same file.
+
+---
+
 ## Layout
 
 Only `public/` is web-exposed. Everything else sits above it and is unreachable

@@ -7,6 +7,7 @@ namespace Rajdhani\Services;
 use PDO;
 use Rajdhani\Helpers\ApiError;
 use Rajdhani\Helpers\CloudinarySigner;
+use Rajdhani\Helpers\Pagination;
 use Rajdhani\Helpers\SlugHelper;
 use Rajdhani\Repositories\MediaRepository;
 use Rajdhani\Services\Concerns\HandlesTransactions;
@@ -16,8 +17,9 @@ use Rajdhani\Support\CloudinaryDestroyer;
 use Rajdhani\Support\Database;
 
 /**
- * Signed direct-to-Cloudinary upload, asset registration, and deletion with a
- * cross-table reference check (doc §12, RTPP-21, RTPP-22). Files never
+ * Signed direct-to-Cloudinary upload, registration, deletion with a
+ * cross-table reference check, and the library's read/edit path (doc §12,
+ * RTPP-21, RTPP-22, RTPP-91). Files never
  * transit this process on the way in — `signature()` only signs a folder and
  * a timestamp for the browser to upload with directly, and `register()` only
  * records what Cloudinary reports happened. `delete()` is the one method here
@@ -178,6 +180,97 @@ final class MediaService
     }
 
     /**
+     * `GET /admin/media` (doc §11, §12; RTPP-91) — the library grid.
+     * Filterable by `folder` (the `rajdhani/{resource}` convention — an
+     * exact match, since assets are never nested deeper than that one
+     * segment) and `type`.
+     *
+     * @param array<string,mixed> $query
+     *
+     * @return array{data:list<array<string,mixed>>,meta:array<string,int>}
+     */
+    public function paginate(array $query): array
+    {
+        $pagination = Pagination::fromQuery($query);
+        $folder = $this->optionalText($query, 'folder', 255);
+        $type = $this->optionalMediaType($query);
+
+        $rows = $this->media->paginate($pagination->limit, $pagination->offset(), $folder, $type);
+        $total = $this->media->count($folder, $type);
+
+        return [
+            'data' => array_map($this->view(...), $rows),
+            'meta' => $pagination->meta($total),
+        ];
+    }
+
+    /**
+     * `GET /admin/media/:id` (doc §11, §12; RTPP-91) — the detail view,
+     * `usage` included directly rather than making the dashboard learn where
+     * an asset is referenced only by attempting a delete and reading the
+     * `409`'s `error.details` (RTPP-22's own path, which still works and is
+     * untouched — this is the same data offered proactively instead).
+     *
+     * @return array<string,mixed>
+     */
+    public function find(string $id): array
+    {
+        $asset = $this->media->find($id);
+
+        if ($asset === null) {
+            throw ApiError::notFound('No such media asset');
+        }
+
+        return $this->view($asset) + ['usage' => $this->media->references($id)];
+    }
+
+    /**
+     * `PATCH /admin/media/:id` (doc §11, §12; RTPP-91) — alt text and
+     * caption only, same reasoning `MediaRepository::update()`'s own doc
+     * gives: every other column describes what Cloudinary actually holds,
+     * and re-uploading is the only honest way to change that. `$rowScope`
+     * is the identical `RequireRole::own()` answer `delete()` already
+     * consumes — an Editor may edit only what they uploaded, a Super Admin
+     * may edit anything.
+     *
+     * @param array<string,mixed> $input
+     *
+     * @return array<string,mixed>
+     */
+    public function update(string $id, array $input, string $callerAdminId, string $rowScope): array
+    {
+        $asset = $this->media->find($id);
+
+        if ($asset === null) {
+            throw ApiError::notFound('No such media asset');
+        }
+
+        if ($rowScope === 'own' && (string) $asset['uploaded_by_id'] !== $callerAdminId) {
+            throw ApiError::forbidden('You may only edit media you uploaded');
+        }
+
+        $fields = [];
+
+        if (array_key_exists('alt_text', $input)) {
+            $fields['alt_text'] = $this->optionalText($input, 'alt_text', 255);
+        }
+
+        if (array_key_exists('caption', $input)) {
+            $fields['caption'] = $this->optionalText($input, 'caption', 512);
+        }
+
+        if ($fields === []) {
+            throw ApiError::validation('Nothing to update', [
+                ['field' => '', 'message' => 'Send alt_text and/or caption'],
+            ]);
+        }
+
+        $this->media->update($id, $fields);
+
+        return $this->view($this->media->find($id) ?? throw ApiError::internal('Asset vanished immediately after being updated'));
+    }
+
+    /**
      * `DELETE /admin/media/:id` (doc §12, RTPP-22). `$rowScope` is
      * `RequireRole::own()`'s recorded answer — `'own'` for an Editor, who may
      * only delete media they uploaded themselves; `'all'` for a Super Admin,
@@ -235,6 +328,22 @@ final class MediaService
             'VIDEO' => 'video',
             default => 'raw',
         };
+    }
+
+    /** @param array<string,mixed> $query */
+    private function optionalMediaType(array $query): ?string
+    {
+        $value = $query['type'] ?? null;
+
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (!is_string($value) || !in_array($value, ['IMAGE', 'VIDEO', 'DOCUMENT'], true)) {
+            throw $this->invalid('type', 'Must be one of: IMAGE, VIDEO, DOCUMENT');
+        }
+
+        return $value;
     }
 
     /** @param array<string,mixed> $input */

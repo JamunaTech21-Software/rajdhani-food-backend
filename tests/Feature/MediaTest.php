@@ -12,9 +12,10 @@ use Rajdhani\Services\MediaService;
 use Rajdhani\Support\CloudinaryDestroyer;
 
 /**
- * Signed direct-to-Cloudinary upload, registration, and deletion with a
- * cross-table reference check (doc §12, RTPP-21, RTPP-22), against a real
- * database and the real Cloudinary credentials in `.env`.
+ * Signed direct-to-Cloudinary upload, registration, deletion with a
+ * cross-table reference check, and the library's read/edit path (doc §12,
+ * RTPP-21, RTPP-22, RTPP-91), against a real database and the real
+ * Cloudinary credentials in `.env`.
  *
  * Upload/registration is pure cryptography, not a network call, so every
  * signing-related DoD item is testable without ever reaching Cloudinary's
@@ -385,6 +386,141 @@ final class MediaTest extends DatabaseTestCase
         self::assertNotNull($this->repository->find($asset['id']));
     }
 
+    // ─── the library grid and detail view (RTPP-91) ─────────────────────────
+
+    public function testPaginateFiltersByFolder(): void
+    {
+        $inProducts = $this->registerAsset(UlidHelper::generate());
+        $document = $this->media->register(UlidHelper::generate(), $this->documentPayload($this->publicId('documents')));
+
+        $result = $this->media->paginate(['folder' => 'rajdhani/products']);
+
+        $ids = array_column($result['data'], 'id');
+        self::assertContains($inProducts['id'], $ids);
+        self::assertNotContains($document['id'], $ids);
+    }
+
+    public function testPaginateFiltersByType(): void
+    {
+        $image = $this->registerAsset(UlidHelper::generate());
+        $document = $this->media->register(UlidHelper::generate(), $this->documentPayload($this->publicId('documents')));
+
+        $result = $this->media->paginate(['type' => 'DOCUMENT']);
+
+        $ids = array_column($result['data'], 'id');
+        self::assertContains($document['id'], $ids);
+        self::assertNotContains($image['id'], $ids);
+    }
+
+    public function testPaginateRejectsAnUnknownType(): void
+    {
+        $error = $this->captureApiError(fn () => $this->media->paginate(['type' => 'AUDIO']));
+
+        self::assertSame(ErrorCode::VALIDATION_ERROR, $error->errorCode());
+    }
+
+    public function testFindIncludesUsageForAReferencedAsset(): void
+    {
+        $asset = $this->registerAsset(UlidHelper::generate());
+        $this->insertCategoryReferencing($asset['id']);
+
+        $found = $this->media->find($asset['id']);
+
+        self::assertSame('categories', $found['usage'][0]['table']);
+        self::assertSame(1, $found['usage'][0]['count']);
+    }
+
+    public function testFindReportsNoUsageForAnUnreferencedAsset(): void
+    {
+        $asset = $this->registerAsset(UlidHelper::generate());
+
+        $found = $this->media->find($asset['id']);
+
+        self::assertSame([], $found['usage']);
+    }
+
+    public function testFindingAMissingAssetIsNotFound(): void
+    {
+        $error = $this->captureApiError(fn () => $this->media->find(UlidHelper::generate()));
+
+        self::assertSame(ErrorCode::NOT_FOUND, $error->errorCode());
+    }
+
+    // ─── editing alt text and caption (RTPP-91) ─────────────────────────────
+
+    public function testUpdatingChangesAltTextAndCaption(): void
+    {
+        $asset = $this->registerAsset(UlidHelper::generate());
+
+        $updated = $this->media->update($asset['id'], [
+            'alt_text' => 'A cup of Rajdhani black tea',
+            'caption'  => 'Photographed at the tasting room',
+        ], UlidHelper::generate(), 'all');
+
+        self::assertSame('A cup of Rajdhani black tea', $updated['alt_text']);
+        self::assertSame('Photographed at the tasting room', $updated['caption']);
+    }
+
+    public function testUpdatingNeverTouchesWhatCloudinaryActuallyHolds(): void
+    {
+        $asset = $this->registerAsset(UlidHelper::generate());
+
+        $updated = $this->media->update($asset['id'], ['alt_text' => 'Changed'], UlidHelper::generate(), 'all');
+
+        self::assertSame($asset['public_id'], $updated['public_id']);
+        self::assertSame($asset['secure_url'], $updated['secure_url']);
+        self::assertSame($asset['bytes'], $updated['bytes']);
+    }
+
+    public function testUpdatingWithNeitherFieldIsRejected(): void
+    {
+        $asset = $this->registerAsset(UlidHelper::generate());
+
+        $error = $this->captureApiError(fn () => $this->media->update($asset['id'], [], UlidHelper::generate(), 'all'));
+
+        self::assertSame(ErrorCode::VALIDATION_ERROR, $error->errorCode());
+    }
+
+    public function testUpdatingAMissingAssetIsNotFound(): void
+    {
+        $error = $this->captureApiError(
+            fn () => $this->media->update(UlidHelper::generate(), ['alt_text' => 'x'], UlidHelper::generate(), 'all')
+        );
+
+        self::assertSame(ErrorCode::NOT_FOUND, $error->errorCode());
+    }
+
+    public function testAnEditorMayNotUpdateMediaSomeoneElseUploaded(): void
+    {
+        $uploader = UlidHelper::generate();
+        $asset = $this->registerAsset($uploader);
+
+        $error = $this->captureApiError(
+            fn () => $this->media->update($asset['id'], ['alt_text' => 'x'], UlidHelper::generate(), 'own')
+        );
+
+        self::assertSame(ErrorCode::FORBIDDEN, $error->errorCode());
+    }
+
+    public function testAnEditorMayUpdateMediaTheyUploadedThemselves(): void
+    {
+        $uploader = UlidHelper::generate();
+        $asset = $this->registerAsset($uploader);
+
+        $updated = $this->media->update($asset['id'], ['alt_text' => 'Mine to edit'], $uploader, 'own');
+
+        self::assertSame('Mine to edit', $updated['alt_text']);
+    }
+
+    public function testASuperAdminMayUpdateAnyonesMedia(): void
+    {
+        $asset = $this->registerAsset(UlidHelper::generate());
+
+        $updated = $this->media->update($asset['id'], ['alt_text' => 'Edited by an admin'], UlidHelper::generate(), 'all');
+
+        self::assertSame('Edited by an admin', $updated['alt_text']);
+    }
+
     // ─── helpers ────────────────────────────────────────────────────────────
 
     /** @return array<string,mixed> */
@@ -402,6 +538,22 @@ final class MediaTest extends DatabaseTestCase
             'bytes'        => 100_000,
             'secure_url'   => "https://res.cloudinary.com/test/image/upload/{$publicId}.jpg",
         ]);
+    }
+
+    /** @return array<string,mixed> */
+    private function documentPayload(string $publicId): array
+    {
+        $version = (string) time();
+
+        return [
+            'public_id'    => $publicId,
+            'version'      => $version,
+            'signature'    => $this->validSignature($publicId, $version),
+            'resource_type' => 'raw',
+            'format'       => 'pdf',
+            'bytes'        => 500_000,
+            'secure_url'   => "https://res.cloudinary.com/test/raw/upload/{$publicId}.pdf",
+        ];
     }
 
     private function insertCategoryReferencing(string $mediaId): void
