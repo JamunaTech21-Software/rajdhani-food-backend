@@ -1952,6 +1952,44 @@ existing RTPP-21/22 coverage in the same file.
 
 ---
 
+## USP strip and welcome block on /public/home (Phase 2, RTPP-92)
+
+`GET /public/home` gains three ingredients: `usp_items` (active `FeatureItem`
+rows, `section = HOME_USP`), `welcome` (the published `(home, welcome)`
+`PageBlock`, `null` if none is published), and `promo_banner` (active
+`HOME_VIDEO_CARD` banners — the welcome block's own promo card per doc §10.1).
+
+**Why this exists**: RTPP-59 (the customer-site Home page, Phase 4) was
+blocked — its own DoD requires the whole page to render from one call to
+`GET /public/home`, and the USP strip and welcome teaser had nowhere to read
+from. RTPP-24 built admin CRUD for `FeatureItem` and `PageBlock` but never a
+public read path — a gap `HomeService`'s own class doc had been flagging
+explicitly since RTPP-36 shipped. RTPP-92 closes exactly the two pieces
+RTPP-59 needed, not the fuller standalone-endpoint backlog those resources
+still lack (`/public/features`, `/public/page-blocks/:pageKey` — still open,
+still someone else's ticket).
+
+**Same shape as every other `/public/home` addition this phase**: two new
+narrow repository methods (`FeatureItemRepository::publicBySection()`,
+`PageBlockRepository::publicFind()`), each resolving its image/icon to a
+URL the same way `TestimonialRepository::publicPublished()` already does —
+no new tables, no new caching logic, same 120-second TTL and the same single
+`public:home` key `/admin/cache/purge` already forgets. `promo_banner` reuses
+`BannerService::publicList()` unchanged, just a second placement value
+alongside the existing `HOME_HERO` slider.
+
+Verified live against the running dev server: created a real `home`/`welcome`
+page block through the admin API — confirmed it stayed absent from
+`/public/home` until `POST /admin/cache/purge`, then appeared correctly
+(including decoded `bullet_points`, not a raw JSON string) immediately after;
+created a real `HOME_VIDEO_CARD` banner and confirmed it appeared under
+`promo_banner` specifically, not `banners`; confirmed a `DRAFT` block never
+appears and a missing block returns `welcome: null` rather than an error.
+Test data removed and the cache re-purged afterward. 5 new tests added to
+the existing `tests/Feature/HomeServiceTest.php`.
+
+---
+
 ## Layout
 
 Only `public/` is web-exposed. Everything else sits above it and is unreachable

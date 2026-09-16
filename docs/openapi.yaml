@@ -717,10 +717,16 @@ paths:
       tags: [Public]
       summary: The composed home page payload
       description: |
-        Banners, featured products, stats, news and testimonials in one call
-        (§9.3, §14.1) — narrower than §10.1's full page description, which
-        also lists a feature-item strip and a welcome page block; neither
-        has a public read path yet (RTPP-24 deferred that exposure).
+        Banners, featured products, stats, news, testimonials, the
+        `HOME_USP` feature-item strip, the `home`/`welcome` page block, and
+        its `HOME_VIDEO_CARD` promo banner — everything §10.1's Home page
+        needs in one call (§9.3, §14.1; RTPP-36, RTPP-92).
+
+        `welcome` is `null` when no `PUBLISHED` block exists at that key —
+        a customer-site placeholder, not an error. The fuller standalone
+        public-exposure backlog for these two resources
+        (`/public/features`, `/public/page-blocks/:pageKey`) is still open
+        and out of this endpoint's scope; only what this page needs is here.
 
         Cached for 120 seconds (doc §14.1's optional aggregate cache,
         RTPP-36) — Redis if `REDIS_URL` is configured and the extension is
@@ -7548,7 +7554,7 @@ components:
 
     HomePayload:
       type: object
-      description: '`GET /public/home`''s composed body (RTPP-36).'
+      description: '`GET /public/home`''s composed body (RTPP-36, RTPP-92).'
       properties:
         banners:
           type: array
@@ -7566,6 +7572,19 @@ components:
         testimonials:
           type: array
           items: { $ref: '#/components/schemas/HomeTestimonial' }
+        usp_items:
+          type: array
+          description: Active `FeatureItem` rows, `section = HOME_USP` (RTPP-92).
+          items: { $ref: '#/components/schemas/HomeUspItem' }
+        welcome:
+          description: 'The published `(home, welcome)` `PageBlock` (RTPP-92). Null when none is published.'
+          allOf:
+            - { $ref: '#/components/schemas/HomeWelcomeBlock' }
+            - nullable: true
+        promo_banner:
+          type: array
+          description: Active, in-window `HOME_VIDEO_CARD` banner(s) — the welcome block's own promo card (RTPP-92).
+          items: { $ref: '#/components/schemas/PublicBanner' }
 
     HomeStat:
       type: object
@@ -7575,6 +7594,42 @@ components:
         value: { type: string, example: '25+', description: 'A display string, not a number to compute with.' }
         label: { type: string }
         icon_name: { type: [string, 'null'] }
+
+    HomeUspItem:
+      type: object
+      description: One `FeatureItem` row, `section = HOME_USP` (doc §10.1; RTPP-92).
+      properties:
+        id: { type: string }
+        title: { type: string }
+        description: { type: [string, 'null'] }
+        icon_name: { type: [string, 'null'] }
+        icon_bg_color: { type: [string, 'null'] }
+        icon:
+          type: [object, 'null']
+          properties:
+            url: { type: string }
+            alt: { type: [string, 'null'] }
+
+    HomeWelcomeBlock:
+      type: object
+      description: The `(home, welcome)` `PageBlock` (doc §10.1; RTPP-92).
+      properties:
+        id: { type: string }
+        eyebrow: { type: [string, 'null'] }
+        heading: { type: [string, 'null'] }
+        subheading: { type: [string, 'null'] }
+        body: { type: [string, 'null'], description: 'Rich text, already sanitised server-side.' }
+        bullet_points:
+          type: array
+          description: The "four-item benefit list" doc §10.1 describes.
+          items: { type: string }
+        cta_label: { type: [string, 'null'] }
+        cta_url: { type: [string, 'null'] }
+        image:
+          type: [object, 'null']
+          properties:
+            url: { type: string }
+            alt: { type: [string, 'null'] }
 
     HomeTestimonial:
       type: object

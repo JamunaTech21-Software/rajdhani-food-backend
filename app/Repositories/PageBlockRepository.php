@@ -39,6 +39,28 @@ final class PageBlockRepository extends Repository
         return $this->one('SELECT ' . self::COLUMNS . ' FROM page_blocks WHERE id = :id', [':id' => $id]);
     }
 
+    /**
+     * One published block by its `(page_key, block_key)` pair (doc §10.1;
+     * RTPP-92) — the home page's welcome/about teaser reads exactly one of
+     * these (`home`, `welcome`). `PUBLISHED` only, same visibility rule as
+     * every other public view in this codebase; the image is resolved to a
+     * URL the same way `TestimonialRepository::publicPublished()` does.
+     *
+     * @return array<string,mixed>|null
+     */
+    public function publicFind(string $pageKey, string $blockKey): ?array
+    {
+        return $this->one(
+            "SELECT p.id, p.eyebrow, p.heading, p.subheading, p.body, p.bullet_points,
+                    p.cta_label, p.cta_url,
+                    m.secure_url AS image_url, m.alt_text AS image_alt
+               FROM page_blocks p
+               LEFT JOIN media_assets m ON m.id = p.image_id
+              WHERE p.page_key = :page_key AND p.block_key = :block_key AND p.status = 'PUBLISHED'",
+            [':page_key' => $pageKey, ':block_key' => $blockKey],
+        );
+    }
+
     public function mediaAssetExists(string $mediaId): bool
     {
         return $this->scalar('SELECT id FROM media_assets WHERE id = :id', [':id' => $mediaId]) !== null;

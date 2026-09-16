@@ -40,6 +40,29 @@ final class FeatureItemRepository extends Repository
         return $this->one('SELECT ' . self::COLUMNS . ' FROM feature_items WHERE id = :id', [':id' => $id]);
     }
 
+    /**
+     * The home page's USP strip, `section = HOME_USP` (doc §10.1; RTPP-92) —
+     * active rows only, unlike `list()`, which the admin screen uses and
+     * which includes inactive ones so they can be re-enabled. The icon is
+     * resolved to a URL the same way every other public view does
+     * (`TestimonialRepository::publicPublished()`), since a public caller has
+     * no other way to render a bare `icon_image_id`.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function publicBySection(string $section): array
+    {
+        return $this->all(
+            'SELECT f.id, f.title, f.description, f.icon_name, f.icon_bg_color,
+                    m.secure_url AS icon_url, m.alt_text AS icon_alt
+               FROM feature_items f
+               LEFT JOIN media_assets m ON m.id = f.icon_image_id
+              WHERE f.section = :section AND f.is_active = 1
+              ORDER BY f.sort_order',
+            [':section' => $section],
+        );
+    }
+
     public function mediaAssetExists(string $mediaId): bool
     {
         return $this->scalar('SELECT id FROM media_assets WHERE id = :id', [':id' => $mediaId]) !== null;
