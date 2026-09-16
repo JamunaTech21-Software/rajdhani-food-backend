@@ -161,7 +161,7 @@ final class GalleryImageRepository extends Repository
             "SELECT
                  i.id, i.title, i.description,
                  c.id AS category_id, c.name AS category_name, c.slug AS category_slug,
-                 m.secure_url AS image_url, m.alt_text AS image_alt
+                 m.secure_url AS image_url, m.alt_text AS image_alt, m.width AS image_width, m.height AS image_height
                FROM gallery_images i
                INNER JOIN gallery_categories c ON c.id = i.category_id
                INNER JOIN media_assets m ON m.id = i.media_id

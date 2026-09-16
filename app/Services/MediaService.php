@@ -7,6 +7,7 @@ namespace Rajdhani\Services;
 use PDO;
 use Rajdhani\Helpers\ApiError;
 use Rajdhani\Helpers\CloudinarySigner;
+use Rajdhani\Helpers\DateHelper;
 use Rajdhani\Helpers\Pagination;
 use Rajdhani\Helpers\SlugHelper;
 use Rajdhani\Repositories\MediaRepository;
@@ -406,7 +407,7 @@ final class MediaService
             'alt_text'       => $row['alt_text'] === null ? null : (string) $row['alt_text'],
             'caption'        => $row['caption'] === null ? null : (string) $row['caption'],
             'uploaded_by_id' => $row['uploaded_by_id'] === null ? null : (string) $row['uploaded_by_id'],
-            'created_at'     => (string) $row['created_at'],
+            'created_at'     => DateHelper::iso((string) $row['created_at']),
         ];
     }
 }

@@ -100,6 +100,23 @@ final class PublicGalleryTest extends DatabaseTestCase
         self::assertSame(2, $result['meta']['totalPages']);
     }
 
+    /**
+     * The layout-shift gap: a masonry grid needs an aspect ratio before the
+     * image loads, and `media_assets.width`/`height` (Cloudinary reports
+     * both at upload) were never carried through to this response.
+     */
+    public function testImagesFeedExposesTheOriginalDimensions(): void
+    {
+        $category = $this->categories->create(['name' => 'Public Test Dimensions', 'slug' => 'public-test-dimensions']);
+        $media = $this->insertMediaAsset(width: 1600, height: 900);
+        $this->images->create(['category_id' => $category['id'], 'media_id' => $media]);
+
+        $result = $this->images->publicList(['category' => 'public-test-dimensions']);
+
+        self::assertSame(1600, $result['data'][0]['image']['width']);
+        self::assertSame(900, $result['data'][0]['image']['height']);
+    }
+
     // ─── helpers ────────────────────────────────────────────────────────────
 
     /** @return array<string,mixed> */
@@ -114,16 +131,18 @@ final class PublicGalleryTest extends DatabaseTestCase
         self::fail("No public category with slug {$slug}");
     }
 
-    private function insertMediaAsset(): string
+    private function insertMediaAsset(?int $width = null, ?int $height = null): string
     {
         $id = UlidHelper::generate();
         $this->db->prepare(
-            'INSERT INTO media_assets (id, public_id, secure_url, type, created_at)
-             VALUES (:id, :public_id, :url, \'IMAGE\', :now)'
+            'INSERT INTO media_assets (id, public_id, secure_url, type, width, height, created_at)
+             VALUES (:id, :public_id, :url, \'IMAGE\', :width, :height, :now)'
         )->execute([
             ':id'        => $id,
             ':public_id' => 'test/' . bin2hex(random_bytes(6)),
             ':url'       => 'https://example.test/img.jpg',
+            ':width'     => $width,
+            ':height'    => $height,
             ':now'       => $this->now(),
         ]);
 

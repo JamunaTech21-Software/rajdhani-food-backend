@@ -6,6 +6,7 @@ namespace Rajdhani\Services;
 
 use PDO;
 use Rajdhani\Helpers\ApiError;
+use Rajdhani\Helpers\DateHelper;
 use Rajdhani\Helpers\Pagination;
 use Rajdhani\Mail\ReviewApprovedMail;
 use Rajdhani\Mail\ReviewSubmittedMail;
@@ -576,10 +577,10 @@ final class ReviewService
             'comment'          => (string) $row['comment'],
             'status'           => (string) $row['status'],
             'moderated_by_id'  => $row['moderated_by_id'] === null ? null : (string) $row['moderated_by_id'],
-            'moderated_at'     => $row['moderated_at'] === null ? null : (string) $row['moderated_at'],
+            'moderated_at'     => $row['moderated_at'] === null ? null : DateHelper::iso((string) $row['moderated_at']),
             'rejection_reason' => $row['rejection_reason'] === null ? null : (string) $row['rejection_reason'],
-            'created_at'       => (string) $row['created_at'],
-            'updated_at'       => (string) $row['updated_at'],
+            'created_at'       => DateHelper::iso((string) $row['created_at']),
+            'updated_at'       => DateHelper::iso((string) $row['updated_at']),
         ];
     }
 
@@ -598,8 +599,8 @@ final class ReviewService
             'comment'           => (string) $row['comment'],
             'status'            => (string) $row['status'],
             'rejection_reason'  => $row['rejection_reason'] === null ? null : (string) $row['rejection_reason'],
-            'created_at'        => (string) $row['created_at'],
-            'updated_at'        => (string) $row['updated_at'],
+            'created_at'        => DateHelper::iso((string) $row['created_at']),
+            'updated_at'        => DateHelper::iso((string) $row['updated_at']),
         ];
     }
 
@@ -616,7 +617,7 @@ final class ReviewService
             'title'         => $row['title'] === null ? null : (string) $row['title'],
             'comment'       => (string) $row['comment'],
             'customer_name' => (string) $row['customer_name'],
-            'created_at'    => (string) $row['created_at'],
+            'created_at'    => DateHelper::iso((string) $row['created_at']),
         ];
     }
 }

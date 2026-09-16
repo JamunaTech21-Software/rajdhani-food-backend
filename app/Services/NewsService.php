@@ -9,6 +9,7 @@ use DateTimeZone;
 use Exception;
 use PDOException;
 use Rajdhani\Helpers\ApiError;
+use Rajdhani\Helpers\DateHelper;
 use Rajdhani\Helpers\Pagination;
 use Rajdhani\Helpers\RichText;
 use Rajdhani\Helpers\SlugHelper;
@@ -460,13 +461,13 @@ final class NewsService
             'tags'             => $row['tags'] === null ? null : json_decode((string) $row['tags'], true, 512, JSON_THROW_ON_ERROR),
             'status'           => (string) $row['status'],
             'is_featured'      => (int) $row['is_featured'] === 1,
-            'published_at'     => $row['published_at'] === null ? null : (string) $row['published_at'],
+            'published_at'     => $row['published_at'] === null ? null : DateHelper::iso((string) $row['published_at']),
             'view_count'       => (int) $row['view_count'],
             'author_id'        => $row['author_id'] === null ? null : (string) $row['author_id'],
             'meta_title'       => $row['meta_title'] === null ? null : (string) $row['meta_title'],
             'meta_description' => $row['meta_description'] === null ? null : (string) $row['meta_description'],
-            'created_at'       => (string) $row['created_at'],
-            'updated_at'       => (string) $row['updated_at'],
+            'created_at'       => DateHelper::iso((string) $row['created_at']),
+            'updated_at'       => DateHelper::iso((string) $row['updated_at']),
         ];
     }
 
@@ -483,10 +484,12 @@ final class NewsService
             'title'        => (string) $row['title'],
             'slug'         => (string) $row['slug'],
             'excerpt'      => $row['excerpt'] === null ? null : (string) $row['excerpt'],
-            'published_at' => (string) $row['published_at'],
+            'published_at' => DateHelper::iso((string) $row['published_at']),
             'cover_image'  => $hasCover ? [
-                'url' => (string) $row['cover_image_url'],
-                'alt' => $row['cover_image_alt'] === null ? null : (string) $row['cover_image_alt'],
+                'url'    => (string) $row['cover_image_url'],
+                'alt'    => $row['cover_image_alt'] === null ? null : (string) $row['cover_image_alt'],
+                'width'  => $row['cover_image_width'] === null ? null : (int) $row['cover_image_width'],
+                'height' => $row['cover_image_height'] === null ? null : (int) $row['cover_image_height'],
             ] : null,
         ];
     }
@@ -508,12 +511,14 @@ final class NewsService
             'excerpt'      => $row['excerpt'] === null ? null : (string) $row['excerpt'],
             'content'      => (string) $row['content'],
             'tags'         => $row['tags'] === null ? null : json_decode((string) $row['tags'], true, 512, JSON_THROW_ON_ERROR),
-            'published_at' => (string) $row['published_at'],
+            'published_at' => DateHelper::iso((string) $row['published_at']),
             'view_count'   => (int) $row['view_count'],
             'author_name'  => $row['author_name'] === null ? null : (string) $row['author_name'],
             'cover_image'  => $hasCover ? [
-                'url' => (string) $row['cover_image_url'],
-                'alt' => $row['cover_image_alt'] === null ? null : (string) $row['cover_image_alt'],
+                'url'    => (string) $row['cover_image_url'],
+                'alt'    => $row['cover_image_alt'] === null ? null : (string) $row['cover_image_alt'],
+                'width'  => $row['cover_image_width'] === null ? null : (int) $row['cover_image_width'],
+                'height' => $row['cover_image_height'] === null ? null : (int) $row['cover_image_height'],
             ] : null,
             'previous' => $previous === null ? null : ['slug' => (string) $previous['slug'], 'title' => (string) $previous['title']],
             'next'     => $next === null ? null : ['slug' => (string) $next['slug'], 'title' => (string) $next['title']],

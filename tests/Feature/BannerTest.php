@@ -39,6 +39,21 @@ final class BannerTest extends DatabaseTestCase
         self::assertNull($banner['ends_at']);
     }
 
+    /**
+     * MySQL's own `"2026-09-13 08:34:28.127"` format is invalid input to
+     * Safari's `Date` parser — every timestamp leaving this API must be ISO
+     * 8601 instead, per doc §7's own Conventions table.
+     */
+    public function testCreatedAtIsIso8601NotMysqlsOwnFormat(): void
+    {
+        $banner = $this->banners->create(['placement' => 'MID_PAGE_CTA']);
+
+        self::assertMatchesRegularExpression(
+            '/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/',
+            $banner['created_at'],
+        );
+    }
+
     public function testAnInvalidPlacementIsRejected(): void
     {
         $error = $this->captureApiError(fn () => $this->banners->create(['placement' => 'NOT_A_REAL_PLACEMENT']));

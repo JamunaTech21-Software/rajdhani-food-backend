@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Rajdhani\Services;
 
 use Rajdhani\Auth\Role;
+use Rajdhani\Helpers\DateHelper;
 use Rajdhani\Repositories\DashboardRepository;
 
 /**
@@ -58,7 +59,7 @@ final class DashboardService
             'id'         => (string) $row['id'],
             'name'       => (string) $row['name'],
             'email'      => (string) $row['email'],
-            'created_at' => (string) $row['created_at'],
+            'created_at' => DateHelper::iso((string) $row['created_at']),
         ];
     }
 }

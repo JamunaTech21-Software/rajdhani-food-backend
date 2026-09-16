@@ -7,6 +7,7 @@ namespace Rajdhani\Services;
 use Rajdhani\Auth\Role;
 use Rajdhani\Auth\RolePolicy;
 use Rajdhani\Helpers\ApiError;
+use Rajdhani\Helpers\DateHelper;
 use Rajdhani\Helpers\PasswordHelper;
 use Rajdhani\Http\Request;
 use Rajdhani\Kernel;
@@ -404,8 +405,8 @@ final class AdminAuthService
             'phone'         => $row['phone'] === null ? null : (string) $row['phone'],
             'avatar_id'     => $row['avatar_id'] === null ? null : (string) $row['avatar_id'],
             'is_active'     => (int) $row['is_active'] === 1,
-            'last_login_at' => $row['last_login_at'] === null ? null : (string) $row['last_login_at'],
-            'created_at'    => (string) $row['created_at'],
+            'last_login_at' => $row['last_login_at'] === null ? null : DateHelper::iso((string) $row['last_login_at']),
+            'created_at'    => DateHelper::iso((string) $row['created_at']),
 
             // The §7.3 matrix row for this admin, served from the same constant
             // RequireRole enforces. §7.3 says the dashboard hides unavailable

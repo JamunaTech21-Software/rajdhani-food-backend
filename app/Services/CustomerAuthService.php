@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Rajdhani\Services;
 
 use Rajdhani\Helpers\ApiError;
+use Rajdhani\Helpers\DateHelper;
 use Rajdhani\Http\Request;
 use Rajdhani\Repositories\CustomerRepository;
 use Rajdhani\Repositories\LoginAttemptRepository;
@@ -270,7 +271,7 @@ final class CustomerAuthService
 
             // google_id is deliberately absent: it identifies the account to
             // Google and the front-end has no use for it.
-            'created_at' => (string) $row['created_at'],
+            'created_at' => DateHelper::iso((string) $row['created_at']),
         ];
     }
 }

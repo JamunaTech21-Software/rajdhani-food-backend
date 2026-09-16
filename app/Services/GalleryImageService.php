@@ -6,6 +6,7 @@ namespace Rajdhani\Services;
 
 use PDO;
 use Rajdhani\Helpers\ApiError;
+use Rajdhani\Helpers\DateHelper;
 use Rajdhani\Helpers\Pagination;
 use Rajdhani\Helpers\UlidHelper;
 use Rajdhani\Repositories\GalleryImageRepository;
@@ -355,7 +356,7 @@ final class GalleryImageService
             'description' => $row['description'] === null ? null : (string) $row['description'],
             'sort_order'  => (int) $row['sort_order'],
             'is_active'   => (int) $row['is_active'] === 1,
-            'created_at'  => (string) $row['created_at'],
+            'created_at'  => DateHelper::iso((string) $row['created_at']),
         ];
     }
 
@@ -376,8 +377,10 @@ final class GalleryImageService
                 'slug' => (string) $row['category_slug'],
             ],
             'image'       => [
-                'url' => (string) $row['image_url'],
-                'alt' => $row['image_alt'] === null ? null : (string) $row['image_alt'],
+                'url'    => (string) $row['image_url'],
+                'alt'    => $row['image_alt'] === null ? null : (string) $row['image_alt'],
+                'width'  => $row['image_width'] === null ? null : (int) $row['image_width'],
+                'height' => $row['image_height'] === null ? null : (int) $row['image_height'],
             ],
         ];
     }

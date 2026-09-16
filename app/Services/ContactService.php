@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Rajdhani\Services;
 
 use Rajdhani\Helpers\ApiError;
+use Rajdhani\Helpers\DateHelper;
 use Rajdhani\Helpers\Pagination;
 use Rajdhani\Mail\ContactMail;
 use Rajdhani\Repositories\ContactMessageRepository;
@@ -170,10 +171,10 @@ final class ContactService
             'subject'        => $row['subject'] === null ? null : (string) $row['subject'],
             'message'        => (string) $row['message'],
             'status'         => (string) $row['status'],
-            'replied_at'     => $row['replied_at'] === null ? null : (string) $row['replied_at'],
+            'replied_at'     => $row['replied_at'] === null ? null : DateHelper::iso((string) $row['replied_at']),
             'internal_notes' => $row['internal_notes'] === null ? null : (string) $row['internal_notes'],
             'ip_address'     => $row['ip_address'] === null ? null : (string) $row['ip_address'],
-            'created_at'     => (string) $row['created_at'],
+            'created_at'     => DateHelper::iso((string) $row['created_at']),
         ];
     }
 }

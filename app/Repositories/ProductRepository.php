@@ -192,6 +192,7 @@ final class ProductRepository extends Repository
                                      p.badge_text, p.badge_color, p.is_featured,
                                      p.rating_average, p.rating_count, p.created_at,
                                      img.secure_url AS image_url, img.alt_text AS image_alt,
+                                     img.width AS image_width, img.height AS image_height,
                                      pack.price AS price, pack.compare_price AS compare_price,
                                      pack.discount_percent AS discount_percent';
 
@@ -326,7 +327,7 @@ final class ProductRepository extends Repository
     }
 
     private const LEAD_IMAGE_SUBQUERY = '(
-        SELECT pi.product_id, m.secure_url, m.alt_text,
+        SELECT pi.product_id, m.secure_url, m.alt_text, m.width, m.height,
                ROW_NUMBER() OVER (PARTITION BY pi.product_id ORDER BY pi.is_primary DESC, pi.sort_order) AS rn
           FROM product_images pi
           JOIN media_assets m ON m.id = pi.media_id
@@ -564,7 +565,7 @@ final class ProductRepository extends Repository
     {
         return $this->all(
             'SELECT pi.id, pi.product_id, pi.media_id, pi.is_primary, pi.sort_order,
-                    m.secure_url AS media_url, m.alt_text AS media_alt
+                    m.secure_url AS media_url, m.alt_text AS media_alt, m.width AS media_width, m.height AS media_height
                FROM product_images pi
                JOIN media_assets m ON m.id = pi.media_id
               WHERE pi.product_id = :product_id

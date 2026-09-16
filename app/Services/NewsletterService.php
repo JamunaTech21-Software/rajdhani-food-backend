@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Rajdhani\Services;
 
 use Rajdhani\Helpers\ApiError;
+use Rajdhani\Helpers\DateHelper;
 use Rajdhani\Helpers\Pagination;
 use Rajdhani\Mail\NewsletterWelcomeMail;
 use Rajdhani\Repositories\NewsletterSubscriberRepository;
@@ -224,8 +225,8 @@ final class NewsletterService
             'email'            => (string) $row['email'],
             'is_subscribed'    => (bool) $row['is_subscribed'],
             'source'           => $row['source'] === null ? null : (string) $row['source'],
-            'subscribed_at'    => (string) $row['subscribed_at'],
-            'unsubscribed_at'  => $row['unsubscribed_at'] === null ? null : (string) $row['unsubscribed_at'],
+            'subscribed_at'    => DateHelper::iso((string) $row['subscribed_at']),
+            'unsubscribed_at'  => $row['unsubscribed_at'] === null ? null : DateHelper::iso((string) $row['unsubscribed_at']),
         ];
     }
 }

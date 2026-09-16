@@ -6167,11 +6167,15 @@ components:
           properties:
             url: { type: string, format: uri }
             alt: { type: [string, 'null'] }
+            width: { type: [integer, 'null'], description: 'Original dimensions (RTPP-93) — reserve layout space before the image loads.' }
+            height: { type: [integer, 'null'] }
         mobile_image:
           type: [object, 'null']
           properties:
             url: { type: string, format: uri }
             alt: { type: [string, 'null'] }
+            width: { type: [integer, 'null'] }
+            height: { type: [integer, 'null'] }
 
     FeatureItemSectionEnum:
       type: string
@@ -6487,6 +6491,8 @@ components:
           properties:
             url: { type: string, format: uri }
             alt: { type: [string, 'null'] }
+            width: { type: [integer, 'null'], description: 'Original dimensions (RTPP-93) — reserve layout space in the masonry grid before the image loads.' }
+            height: { type: [integer, 'null'] }
 
     NewsPost:
       type: object
@@ -6552,7 +6558,13 @@ components:
         slug: { type: string }
         excerpt: { type: [string, 'null'] }
         published_at: { type: string, format: date-time }
-        cover_image: { $ref: '#/components/schemas/Image' }
+        cover_image:
+          type: [object, 'null']
+          properties:
+            url: { type: string, format: uri }
+            alt: { type: [string, 'null'] }
+            width: { type: [integer, 'null'], description: 'Original dimensions (RTPP-93) — reserve layout space before the image loads.' }
+            height: { type: [integer, 'null'] }
 
     PublicNewsPost:
       type: object
@@ -6570,7 +6582,13 @@ components:
         published_at: { type: string, format: date-time }
         view_count: { type: integer, description: Incremented by this request itself. }
         author_name: { type: [string, 'null'] }
-        cover_image: { $ref: '#/components/schemas/Image' }
+        cover_image:
+          type: [object, 'null']
+          properties:
+            url: { type: string, format: uri }
+            alt: { type: [string, 'null'] }
+            width: { type: [integer, 'null'] }
+            height: { type: [integer, 'null'] }
         previous:
           type: [object, 'null']
           properties:
@@ -6736,6 +6754,8 @@ components:
           properties:
             url: { type: string, format: uri }
             alt: { type: [string, 'null'] }
+            width: { type: [integer, 'null'], description: 'Original dimensions (RTPP-93) — reserve layout space before the image loads.' }
+            height: { type: [integer, 'null'] }
         category: { $ref: '#/components/schemas/ProductCategoryRef' }
 
     WishlistAddInput:
@@ -7300,6 +7320,8 @@ components:
         media_id: { $ref: '#/components/schemas/Ulid' }
         url: { type: string, format: uri }
         alt: { type: [string, 'null'] }
+        width: { type: [integer, 'null'], description: 'Original dimensions (RTPP-93) — reserve layout space before the image loads.' }
+        height: { type: [integer, 'null'] }
         is_primary: { type: boolean, description: At most one image per product. }
         sort_order: { type: integer }
 

@@ -183,7 +183,9 @@ final class BannerRepository extends Repository
                 b.video_url, b.primary_cta_label, b.primary_cta_url,
                 b.secondary_cta_label, b.secondary_cta_url, b.overlay_opacity, b.sort_order,
                 d.secure_url AS desktop_image_url, d.alt_text AS desktop_image_alt,
-                m.secure_url AS mobile_image_url, m.alt_text AS mobile_image_alt';
+                d.width AS desktop_image_width, d.height AS desktop_image_height,
+                m.secure_url AS mobile_image_url, m.alt_text AS mobile_image_alt,
+                m.width AS mobile_image_width, m.height AS mobile_image_height';
     }
 
     /** @return array{0:string,1:array<string,scalar|null>} */

@@ -277,7 +277,8 @@ final class NewsRepository extends Repository
     private function publicColumns(): string
     {
         return 'p.id, p.title, p.slug, p.excerpt, p.content, p.tags, p.published_at, p.view_count,
-                m.secure_url AS cover_image_url, m.alt_text AS cover_image_alt';
+                m.secure_url AS cover_image_url, m.alt_text AS cover_image_alt,
+                m.width AS cover_image_width, m.height AS cover_image_height';
     }
 
     /** @return array{0:string,1:array<string,scalar|null>} */

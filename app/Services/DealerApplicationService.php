@@ -6,6 +6,7 @@ namespace Rajdhani\Services;
 
 use PDO;
 use Rajdhani\Helpers\ApiError;
+use Rajdhani\Helpers\DateHelper;
 use Rajdhani\Helpers\Pagination;
 use Rajdhani\Mail\DealerApplicationMail;
 use Rajdhani\Repositories\DealerApplicationRepository;
@@ -97,7 +98,7 @@ final class DealerApplicationService
                     throw ApiError::internal('Could not load the application just created');
                 }
 
-                return ['applicationId' => $applicationId, 'submittedAt' => (string) $created['created_at'], 'row' => $created];
+                return ['applicationId' => $applicationId, 'submittedAt' => DateHelper::iso((string) $created['created_at']), 'row' => $created];
             });
         });
 
@@ -392,10 +393,10 @@ final class DealerApplicationService
             'status'              => (string) $row['status'],
             'assigned_to'         => $row['assigned_to_id'] === null ? null : ['id' => (string) $row['assigned_to_id'], 'name' => (string) $row['assignee_name']],
             'internal_notes'      => $row['internal_notes'] === null ? null : (string) $row['internal_notes'],
-            'reviewed_at'         => $row['reviewed_at'] === null ? null : (string) $row['reviewed_at'],
+            'reviewed_at'         => $row['reviewed_at'] === null ? null : DateHelper::iso((string) $row['reviewed_at']),
             'ip_address'          => $row['ip_address'] === null ? null : (string) $row['ip_address'],
-            'created_at'          => (string) $row['created_at'],
-            'updated_at'          => (string) $row['updated_at'],
+            'created_at'          => DateHelper::iso((string) $row['created_at']),
+            'updated_at'          => DateHelper::iso((string) $row['updated_at']),
         ];
     }
 }

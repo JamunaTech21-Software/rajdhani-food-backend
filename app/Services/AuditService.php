@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Rajdhani\Services;
 
+use Rajdhani\Helpers\DateHelper;
 use Rajdhani\Helpers\Pagination;
 use Rajdhani\Repositories\AuditLogRepository;
 use Rajdhani\Services\Concerns\ValidatesInput;
@@ -83,7 +84,7 @@ final class AuditService
             'before'      => $row['before_json'] === null ? null : json_decode((string) $row['before_json'], true),
             'after'       => $row['after_json'] === null ? null : json_decode((string) $row['after_json'], true),
             'ip_address'  => $row['ip_address'] === null ? null : (string) $row['ip_address'],
-            'created_at'  => (string) $row['created_at'],
+            'created_at'  => DateHelper::iso((string) $row['created_at']),
         ];
     }
 }

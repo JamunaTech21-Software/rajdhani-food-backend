@@ -7,6 +7,7 @@ namespace Rajdhani\Services;
 use PDO;
 use PDOException;
 use Rajdhani\Helpers\ApiError;
+use Rajdhani\Helpers\DateHelper;
 use Rajdhani\Helpers\Pagination;
 use Rajdhani\Helpers\RichText;
 use Rajdhani\Helpers\SlugHelper;
@@ -1213,7 +1214,7 @@ final class ProductService
             'status'      => (string) $row['status'],
             'is_featured' => (int) $row['is_featured'] === 1,
             'sort_order'  => (int) $row['sort_order'],
-            'updated_at'  => (string) $row['updated_at'],
+            'updated_at'  => DateHelper::iso((string) $row['updated_at']),
         ];
     }
 
@@ -1251,8 +1252,8 @@ final class ProductService
             'rating_count'      => (int) $row['rating_count'],
             'meta_title'        => $row['meta_title'] === null ? null : (string) $row['meta_title'],
             'meta_description'  => $row['meta_description'] === null ? null : (string) $row['meta_description'],
-            'created_at'        => (string) $row['created_at'],
-            'updated_at'        => (string) $row['updated_at'],
+            'created_at'        => DateHelper::iso((string) $row['created_at']),
+            'updated_at'        => DateHelper::iso((string) $row['updated_at']),
             'pack_sizes'        => array_map($this->packSizeView(...), $this->products->packSizes($id)),
             'highlights'        => array_map($this->highlightView(...), $this->products->highlights($id)),
             'images'            => array_map($this->imageViewFromRow(...), $this->products->images($id)),
@@ -1288,8 +1289,10 @@ final class ProductService
             'compare_price'     => $row['compare_price'] === null ? null : (float) $row['compare_price'],
             'discount_percent'  => $row['discount_percent'] === null ? null : (int) $row['discount_percent'],
             'image'             => $row['image_url'] === null ? null : [
-                'url' => (string) $row['image_url'],
-                'alt' => $row['image_alt'] === null ? null : (string) $row['image_alt'],
+                'url'    => (string) $row['image_url'],
+                'alt'    => $row['image_alt'] === null ? null : (string) $row['image_alt'],
+                'width'  => $row['image_width'] === null ? null : (int) $row['image_width'],
+                'height' => $row['image_height'] === null ? null : (int) $row['image_height'],
             ],
             'category'          => [
                 'id'   => (string) $row['category_id'],
@@ -1394,6 +1397,8 @@ final class ProductService
             'media_id'   => (string) $row['media_id'],
             'url'        => isset($row['media_url']) ? (string) $row['media_url'] : $this->lookupMediaUrl((string) $row['media_id']),
             'alt'        => isset($row['media_alt']) ? (string) $row['media_alt'] : null,
+            'width'      => isset($row['media_width']) ? (int) $row['media_width'] : null,
+            'height'     => isset($row['media_height']) ? (int) $row['media_height'] : null,
             'is_primary' => (int) $row['is_primary'] === 1,
             'sort_order' => (int) $row['sort_order'],
         ];

@@ -1990,6 +1990,80 @@ the existing `tests/Feature/HomeServiceTest.php`.
 
 ---
 
+## ISO 8601 timestamps and image dimensions (Phase 2, RTPP-93)
+
+Two real bugs the front-end team found while building RTPP-65 (News listing).
+
+**Every timestamp was going out in MySQL's own format**, not ISO 8601.
+Doc §7's own Conventions table already promised "`DATETIME(3)` UTC,
+application-managed; ISO 8601 UTC over the wire" — but every `view()`/
+`adminView()` method across the codebase had instead been sending
+`"2026-09-13 08:34:28.127"` untouched. Chrome's `Date` parser tolerates the
+space-separated format; Safari's does not and silently returns
+`Invalid Date` — every date on the customer site would have rendered blank
+on an iPhone while looking correct in Chrome-based local development,
+precisely the kind of gap that survives every environment an engineer
+actually tests in.
+
+Fixed with one small static helper, `Helpers\DateHelper::iso()`
+(`str_replace(' ', 'T', $value) . 'Z'` — a pure string transform, not a
+`DateTimeImmutable` round trip, since every value it receives already came
+from a `DATETIME(3)` column in exactly this shape), called at every place a
+timestamp leaves the API. That turned out to be **17 Service files** —
+`EnquiryService`, `DealerApplicationService`, `NewsService`,
+`DashboardService`, `CategoryService`, `ReviewService`, `ProductService`,
+`BannerService`, `MediaService`, `ContactService`, `GalleryImageService`,
+`AdminAuthService`, `AuditService`, `CustomerAuthService`,
+`NewsletterService` — everywhere a `_at` column reached a response.
+Two categories were deliberately left alone: CSV exports (human-readable
+spreadsheet output, not a JSON API response — MySQL's own format is
+actually the more Excel-friendly one there) and purely internal
+comparisons (`TokenService`'s expiry check, `NewsRepository`'s
+prev/next-article lookup) that consume the column for a SQL parameter, not
+an API response.
+
+**Public images had no width or height.** `media_assets.width`/`height`
+were already populated — Cloudinary reports both at upload — but no public
+view exposed them, so a masonry grid or a card layout had no way to
+reserve space before the image loaded and had to guess an aspect ratio and
+crop. Added `width`/`height` alongside `url`/`alt` everywhere a public
+image reference already resolves a `secure_url`: gallery images, news
+cover images, product lead and detail images, and banner desktop/mobile
+images. Deliberately left out: testimonial avatars, feature-item icons,
+and the home welcome block's own image — small, typically fixed-size UI
+elements where layout-shift is a much smaller concern, not the same class
+of problem as a masonry grid or a hero image.
+
+Also handled, at the frontend team's direct request, as routine dev-database
+hygiene rather than a code change: deleted their test records
+(`RDFP-ENQ-2026-00001`–`00003`, `RDFP-DA-2026-00001`) and reset the affected
+reference-counter sequences.
+
+**Deliberately not fixed here**: `name_bn` is `null` on all 64 seeded
+districts — `LocationSeeder`'s own comment already explains why (no
+Bengali translation data was ever transcribed from the withdrawn v1
+source); this needs real content supplied, not code. SMTP/notify-email
+lists remain unset pending the client's Gmail App Password — unchanged
+since RTPP-33. Both are tracked, not silently dropped.
+
+**A related, larger gap opened as its own ticket, not built here**:
+`GET /admin/users` still 404s — admin user management (list, invite,
+role editing, deactivate) was never built on the backend at all;
+`AdminUserRepository`'s own class doc has said "no `create()`" since it was
+written. This is what's actually blocking RTPP-53. Tracked as **RTPP-94**.
+
+Verified live against the running dev server: a real news article's
+`published_at` came back as `2026-09-13T08:34:28.127Z`, not MySQL's own
+format; its `cover_image` carried `width: 1200, height: 675`; a public
+gallery image carried `width: 1200, height: 800`; an admin banner's
+`created_at`/`updated_at` were both correctly ISO-formatted. 3 new tests
+(`tests/Unit/DateHelperTest.php`, one regression test each in
+`tests/Feature/BannerTest.php` and `tests/Feature/PublicGalleryTest.php`)
+plus the DateHelper fix itself, verified against every existing test in the
+suite with no regressions.
+
+---
+
 ## Layout
 
 Only `public/` is web-exposed. Everything else sits above it and is unreachable

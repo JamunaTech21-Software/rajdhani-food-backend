@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use Exception;
 use Rajdhani\Helpers\ApiError;
+use Rajdhani\Helpers\DateHelper;
 use Rajdhani\Helpers\Pagination;
 use Rajdhani\Helpers\UlidHelper;
 use Rajdhani\Repositories\BannerRepository;
@@ -422,10 +423,10 @@ final class BannerService
             'overlay_opacity'     => $row['overlay_opacity'] === null ? null : (int) $row['overlay_opacity'],
             'sort_order'          => (int) $row['sort_order'],
             'status'              => (string) $row['status'],
-            'starts_at'           => $row['starts_at'] === null ? null : (string) $row['starts_at'],
-            'ends_at'             => $row['ends_at'] === null ? null : (string) $row['ends_at'],
-            'created_at'          => (string) $row['created_at'],
-            'updated_at'          => (string) $row['updated_at'],
+            'starts_at'           => $row['starts_at'] === null ? null : DateHelper::iso((string) $row['starts_at']),
+            'ends_at'             => $row['ends_at'] === null ? null : DateHelper::iso((string) $row['ends_at']),
+            'created_at'          => DateHelper::iso((string) $row['created_at']),
+            'updated_at'          => DateHelper::iso((string) $row['updated_at']),
         ];
     }
 
@@ -451,12 +452,16 @@ final class BannerService
             'overlay_opacity'     => $row['overlay_opacity'] === null ? null : (int) $row['overlay_opacity'],
             'sort_order'          => (int) $row['sort_order'],
             'desktop_image'       => $row['desktop_image_url'] === null ? null : [
-                'url' => (string) $row['desktop_image_url'],
-                'alt' => $row['desktop_image_alt'] === null ? null : (string) $row['desktop_image_alt'],
+                'url'    => (string) $row['desktop_image_url'],
+                'alt'    => $row['desktop_image_alt'] === null ? null : (string) $row['desktop_image_alt'],
+                'width'  => $row['desktop_image_width'] === null ? null : (int) $row['desktop_image_width'],
+                'height' => $row['desktop_image_height'] === null ? null : (int) $row['desktop_image_height'],
             ],
             'mobile_image'        => $row['mobile_image_url'] === null ? null : [
-                'url' => (string) $row['mobile_image_url'],
-                'alt' => $row['mobile_image_alt'] === null ? null : (string) $row['mobile_image_alt'],
+                'url'    => (string) $row['mobile_image_url'],
+                'alt'    => $row['mobile_image_alt'] === null ? null : (string) $row['mobile_image_alt'],
+                'width'  => $row['mobile_image_width'] === null ? null : (int) $row['mobile_image_width'],
+                'height' => $row['mobile_image_height'] === null ? null : (int) $row['mobile_image_height'],
             ],
         ];
     }

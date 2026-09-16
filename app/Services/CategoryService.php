@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Rajdhani\Services;
 
 use Rajdhani\Helpers\ApiError;
+use Rajdhani\Helpers\DateHelper;
 use Rajdhani\Helpers\Pagination;
 use Rajdhani\Helpers\SlugHelper;
 use Rajdhani\Helpers\UlidHelper;
@@ -326,8 +327,8 @@ final class CategoryService
             'is_active'        => (int) $row['is_active'] === 1,
             'meta_title'       => $row['meta_title'] === null ? null : (string) $row['meta_title'],
             'meta_description' => $row['meta_description'] === null ? null : (string) $row['meta_description'],
-            'created_at'       => (string) $row['created_at'],
-            'updated_at'       => (string) $row['updated_at'],
+            'created_at'       => DateHelper::iso((string) $row['created_at']),
+            'updated_at'       => DateHelper::iso((string) $row['updated_at']),
         ];
     }
 

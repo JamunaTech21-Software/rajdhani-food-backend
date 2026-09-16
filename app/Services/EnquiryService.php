@@ -6,6 +6,7 @@ namespace Rajdhani\Services;
 
 use PDO;
 use Rajdhani\Helpers\ApiError;
+use Rajdhani\Helpers\DateHelper;
 use Rajdhani\Helpers\Pagination;
 use Rajdhani\Mail\EnquiryMail;
 use Rajdhani\Repositories\EnquiryRepository;
@@ -357,8 +358,8 @@ final class EnquiryService
             'internal_notes'  => $row['internal_notes'] === null ? null : (string) $row['internal_notes'],
             'source_page'     => $row['source_page'] === null ? null : (string) $row['source_page'],
             'ip_address'      => $row['ip_address'] === null ? null : (string) $row['ip_address'],
-            'created_at'      => (string) $row['created_at'],
-            'updated_at'      => (string) $row['updated_at'],
+            'created_at'      => DateHelper::iso((string) $row['created_at']),
+            'updated_at'      => DateHelper::iso((string) $row['updated_at']),
         ];
     }
 }
