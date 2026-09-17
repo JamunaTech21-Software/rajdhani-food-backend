@@ -51,6 +51,20 @@ final class PageBlockService
     }
 
     /**
+     * `GET /public/page-blocks/{pageKey}` (doc §9.3, §10.4; RTPP-67) — every
+     * published block on one page, keyed by `block_key` so the page can pick
+     * the one it wants (`about/our_story`, `about/mission`, …). Returns `[]`
+     * for a page with no published blocks yet, not a `404` — "no content"
+     * is a normal state here, not an error.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function publicByPage(string $pageKey): array
+    {
+        return array_map($this->publicView(...), $this->blocks->publicByPage($pageKey));
+    }
+
+    /**
      * @param array<string,mixed> $input
      *
      * @return array<string,mixed>
@@ -338,6 +352,43 @@ final class PageBlockService
             'cta_url'       => $row['cta_url'] === null ? null : (string) $row['cta_url'],
             'sort_order'    => (int) $row['sort_order'],
             'status'        => (string) $row['status'],
+        ];
+    }
+
+    /**
+     * The "four-item benefit list" doc §10.1 describes is `bullet_points` —
+     * decoded here the same way `HomeService::pageBlockView()` decodes the
+     * one page block that endpoint already carries.
+     *
+     * @param array<string,mixed> $row
+     *
+     * @return array<string,mixed>
+     */
+    private function publicView(array $row): array
+    {
+        $bulletPoints = [];
+
+        if (is_string($row['bullet_points']) && $row['bullet_points'] !== '') {
+            /** @var mixed $decoded */
+            $decoded = json_decode($row['bullet_points'], true);
+            $bulletPoints = is_array($decoded) ? array_values(array_map(strval(...), $decoded)) : [];
+        }
+
+        return [
+            'block_key'     => (string) $row['block_key'],
+            'eyebrow'       => $row['eyebrow'] === null ? null : (string) $row['eyebrow'],
+            'heading'       => $row['heading'] === null ? null : (string) $row['heading'],
+            'subheading'    => $row['subheading'] === null ? null : (string) $row['subheading'],
+            'body'          => $row['body'] === null ? null : (string) $row['body'],
+            'bullet_points' => $bulletPoints,
+            'cta_label'     => $row['cta_label'] === null ? null : (string) $row['cta_label'],
+            'cta_url'       => $row['cta_url'] === null ? null : (string) $row['cta_url'],
+            'image'         => $row['image_url'] === null ? null : [
+                'url'    => (string) $row['image_url'],
+                'alt'    => $row['image_alt'] === null ? null : (string) $row['image_alt'],
+                'width'  => $row['image_width'] === null ? null : (int) $row['image_width'],
+                'height' => $row['image_height'] === null ? null : (int) $row['image_height'],
+            ],
         ];
     }
 }

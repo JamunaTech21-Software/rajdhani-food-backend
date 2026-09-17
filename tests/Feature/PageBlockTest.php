@@ -149,6 +149,58 @@ final class PageBlockTest extends DatabaseTestCase
         self::assertSame(ErrorCode::NOT_FOUND, $error->errorCode());
     }
 
+    // ─── public read (RTPP-67) ───────────────────────────────────────────
+
+    public function testPublicByPageOnlyReturnsPublishedBlocksOnThatPageInSortOrder(): void
+    {
+        $this->blocks->create(['page_key' => 'test-page', 'block_key' => 'second', 'heading' => 'Second', 'sort_order' => 2]);
+        $this->blocks->create(['page_key' => 'test-page', 'block_key' => 'first', 'heading' => 'First', 'sort_order' => 1]);
+        $this->blocks->create(['page_key' => 'test-page', 'block_key' => 'draft', 'heading' => 'Draft', 'status' => 'DRAFT']);
+        $this->blocks->create(['page_key' => 'another-test-page', 'block_key' => 'other-page', 'heading' => 'Wrong Page']);
+
+        $headings = array_column($this->blocks->publicByPage('test-page'), 'heading');
+
+        self::assertSame(['First', 'Second'], $headings);
+    }
+
+    public function testPublicByPageReturnsAnEmptyArrayNotNullForAPageWithNoPublishedBlocks(): void
+    {
+        self::assertSame([], $this->blocks->publicByPage('a-page-with-nothing-published'));
+    }
+
+    public function testPublicViewDecodesBulletPointsAndShapesTheImage(): void
+    {
+        $mediaId = $this->insertMediaAsset();
+        $this->blocks->create([
+            'page_key' => 'test-page', 'block_key' => 'story', 'heading' => 'Our Story',
+            'bullet_points' => ['One', 'Two'], 'image_id' => $mediaId,
+        ]);
+
+        $block = $this->blocks->publicByPage('test-page')[0];
+
+        self::assertArrayNotHasKey('id', $block);
+        self::assertArrayNotHasKey('page_key', $block);
+        self::assertArrayNotHasKey('image_id', $block);
+        self::assertSame(['One', 'Two'], $block['bullet_points']);
+        self::assertSame('https://example.test/img.jpg', $block['image']['url']);
+    }
+
+    private function insertMediaAsset(): string
+    {
+        $id = UlidHelper::generate();
+        $this->db->prepare(
+            'INSERT INTO media_assets (id, public_id, secure_url, type, created_at)
+             VALUES (:id, :public_id, :url, \'IMAGE\', :now)'
+        )->execute([
+            ':id'        => $id,
+            ':public_id' => 'test/' . bin2hex(random_bytes(6)),
+            ':url'       => 'https://example.test/img.jpg',
+            ':now'       => (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))->format('Y-m-d H:i:s.v'),
+        ]);
+
+        return $id;
+    }
+
     private function insertPageBlockDirectly(string $pageKey, string $blockKey): void
     {
         $this->db->prepare(

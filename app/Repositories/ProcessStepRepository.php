@@ -40,6 +40,28 @@ final class ProcessStepRepository extends Repository
         return $this->one('SELECT ' . self::COLUMNS . ' FROM process_steps WHERE id = :id', [':id' => $id]);
     }
 
+    /**
+     * `GET /public/process-steps?group=` (doc §9.3, §10.4; RTPP-67) —
+     * active steps in one group, in `step_number` order (the timeline's
+     * actual sequence — distinct from `sort_order`, which only reorders
+     * display position; see this class's own doc). Active only, image
+     * resolved the way every other public view in this codebase does.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function publicByGroup(string $group): array
+    {
+        return $this->all(
+            'SELECT s.id, s.step_number, s.title, s.description, s.icon_name,
+                    m.secure_url AS image_url, m.alt_text AS image_alt, m.width AS image_width, m.height AS image_height
+               FROM process_steps s
+               LEFT JOIN media_assets m ON m.id = s.image_id
+              WHERE s.`group` = :group AND s.is_active = 1
+              ORDER BY s.step_number',
+            [':group' => $group],
+        );
+    }
+
     public function mediaAssetExists(string $mediaId): bool
     {
         return $this->scalar('SELECT id FROM media_assets WHERE id = :id', [':id' => $mediaId]) !== null;

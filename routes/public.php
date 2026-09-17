@@ -12,18 +12,23 @@ declare(strict_types=1);
 
 use Rajdhani\Controllers\Public\BannerController;
 use Rajdhani\Controllers\Public\CategoryController;
+use Rajdhani\Controllers\Public\CertificationController;
 use Rajdhani\Controllers\Public\ContactController;
 use Rajdhani\Controllers\Public\DealerApplicationController;
 use Rajdhani\Controllers\Public\DownloadController;
 use Rajdhani\Controllers\Public\EnquiryController;
+use Rajdhani\Controllers\Public\FeatureItemController;
 use Rajdhani\Controllers\Public\GalleryController;
 use Rajdhani\Controllers\Public\HomeController;
 use Rajdhani\Controllers\Public\LayoutController;
 use Rajdhani\Controllers\Public\LocationController;
 use Rajdhani\Controllers\Public\NewsController;
 use Rajdhani\Controllers\Public\NewsletterController;
+use Rajdhani\Controllers\Public\PageBlockController;
+use Rajdhani\Controllers\Public\ProcessStepController;
 use Rajdhani\Controllers\Public\ProductController;
 use Rajdhani\Controllers\Public\ReviewController;
+use Rajdhani\Controllers\Public\StatCounterController;
 use Rajdhani\Controllers\Public\WishlistController;
 use Rajdhani\Http\Router;
 use Rajdhani\Middleware\OptionalCustomer;
@@ -150,4 +155,16 @@ $router->group('/public', [], static function (Router $r): void {
     // RTPP-32 — brochure/catalogue resolve, by key rather than id: the
     // front-end's download button is built against a known stable key.
     $r->get('/downloads/:key', Router::to(DownloadController::class, 'show'));
+
+    // RTPP-67 — the public read paths RTPP-24 deferred for every module
+    // besides banners/news/gallery: feature items, process steps, stat
+    // counters, certifications and static-page blocks. Each list is scoped
+    // by a required `section`/`group` (or, for page blocks, a route
+    // segment) — see each service's own doc for why "everything mixed
+    // together" has no sensible public reading.
+    $r->get('/page-blocks/:pageKey', Router::to(PageBlockController::class, 'index'));
+    $r->get('/certifications', Router::to(CertificationController::class, 'index'));
+    $r->get('/feature-items', Router::to(FeatureItemController::class, 'index'));
+    $r->get('/process-steps', Router::to(ProcessStepController::class, 'index'));
+    $r->get('/stats', Router::to(StatCounterController::class, 'index'));
 });

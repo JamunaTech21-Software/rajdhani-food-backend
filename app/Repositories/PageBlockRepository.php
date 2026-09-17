@@ -61,6 +61,29 @@ final class PageBlockRepository extends Repository
         );
     }
 
+    /**
+     * `GET /public/page-blocks/{pageKey}` (doc §9.3, §10.4; RTPP-67) — every
+     * published block on one page, in editor-chosen order, so a page with
+     * several blocks (About's `our_story`/`mission`/`vision`) reads in one
+     * call rather than one per `block_key`. `PUBLISHED` only, image
+     * resolved the way every other public view in this codebase does.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function publicByPage(string $pageKey): array
+    {
+        return $this->all(
+            "SELECT p.id, p.block_key, p.eyebrow, p.heading, p.subheading, p.body, p.bullet_points,
+                    p.cta_label, p.cta_url,
+                    m.secure_url AS image_url, m.alt_text AS image_alt, m.width AS image_width, m.height AS image_height
+               FROM page_blocks p
+               LEFT JOIN media_assets m ON m.id = p.image_id
+              WHERE p.page_key = :page_key AND p.status = 'PUBLISHED'
+              ORDER BY p.sort_order",
+            [':page_key' => $pageKey],
+        );
+    }
+
     public function mediaAssetExists(string $mediaId): bool
     {
         return $this->scalar('SELECT id FROM media_assets WHERE id = :id', [':id' => $mediaId]) !== null;

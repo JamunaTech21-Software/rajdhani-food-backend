@@ -46,6 +46,23 @@ final class FeatureItemService
     }
 
     /**
+     * `GET /public/feature-items?section=` (doc §9.3, §10.1; RTPP-67) —
+     * `section` is required here, unlike the admin `list()` above: there is
+     * no sensible "every section mixed together" reading for a page-shaped
+     * public caller, only "the strip this one page wants".
+     *
+     * @param array<string,mixed> $query
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function publicBySection(array $query): array
+    {
+        $section = $this->requiredSection($query);
+
+        return array_map($this->publicView(...), $this->items->publicBySection($section));
+    }
+
+    /**
      * @param array<string,mixed> $input
      *
      * @return array<string,mixed>
@@ -257,6 +274,26 @@ final class FeatureItemService
             'icon_bg_color'  => $row['icon_bg_color'] === null ? null : (string) $row['icon_bg_color'],
             'sort_order'     => (int) $row['sort_order'],
             'is_active'      => (int) $row['is_active'] === 1,
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $row
+     *
+     * @return array<string,mixed>
+     */
+    private function publicView(array $row): array
+    {
+        return [
+            'id'          => (string) $row['id'],
+            'title'       => (string) $row['title'],
+            'description' => $row['description'] === null ? null : (string) $row['description'],
+            'icon_name'   => $row['icon_name'] === null ? null : (string) $row['icon_name'],
+            'icon_bg_color' => $row['icon_bg_color'] === null ? null : (string) $row['icon_bg_color'],
+            'icon'        => $row['icon_url'] === null ? null : [
+                'url' => (string) $row['icon_url'],
+                'alt' => $row['icon_alt'] === null ? null : (string) $row['icon_alt'],
+            ],
         ];
     }
 }

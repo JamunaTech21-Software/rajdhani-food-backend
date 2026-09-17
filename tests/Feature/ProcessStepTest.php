@@ -133,6 +133,54 @@ final class ProcessStepTest extends DatabaseTestCase
         self::assertSame(2, $refreshedB['step_number']);
     }
 
+    // ─── public read (RTPP-67) ───────────────────────────────────────────
+
+    public function testPublicByGroupReturnsOnlyActiveStepsInStepNumberOrder(): void
+    {
+        $this->steps->create(['group' => 'BECOME_DEALER', 'step_number' => 2, 'title' => 'Second']);
+        $this->steps->create(['group' => 'BECOME_DEALER', 'step_number' => 1, 'title' => 'First']);
+        $this->steps->create(['group' => 'BECOME_DEALER', 'step_number' => 3, 'title' => 'Hidden', 'is_active' => false]);
+        $this->steps->create(['group' => 'MANUFACTURING_PROCESS', 'step_number' => 1, 'title' => 'Wrong Group']);
+
+        $titles = array_column($this->steps->publicByGroup(['group' => 'BECOME_DEALER']), 'title');
+
+        self::assertSame(['First', 'Second'], $titles);
+    }
+
+    public function testPublicByGroupRequiresAGroup(): void
+    {
+        $error = $this->captureApiError(fn () => $this->steps->publicByGroup([]));
+
+        self::assertSame('group', $error->details()[0]['field']);
+    }
+
+    public function testPublicViewShapesTheImageObjectFromTheJoinedMediaAsset(): void
+    {
+        $mediaId = $this->insertMediaAsset();
+        $this->steps->create(['group' => 'BECOME_DEALER', 'step_number' => 1, 'title' => 'With Image', 'image_id' => $mediaId]);
+
+        $step = $this->steps->publicByGroup(['group' => 'BECOME_DEALER'])[0];
+
+        self::assertArrayNotHasKey('image_id', $step);
+        self::assertSame('https://example.test/img.jpg', $step['image']['url']);
+    }
+
+    private function insertMediaAsset(): string
+    {
+        $id = UlidHelper::generate();
+        $this->db->prepare(
+            'INSERT INTO media_assets (id, public_id, secure_url, type, created_at)
+             VALUES (:id, :public_id, :url, \'IMAGE\', :now)'
+        )->execute([
+            ':id'        => $id,
+            ':public_id' => 'test/' . bin2hex(random_bytes(6)),
+            ':url'       => 'https://example.test/img.jpg',
+            ':now'       => (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))->format('Y-m-d H:i:s.v'),
+        ]);
+
+        return $id;
+    }
+
     private function insertProcessStepDirectly(string $group, int $stepNumber, string $title): void
     {
         $this->db->prepare(

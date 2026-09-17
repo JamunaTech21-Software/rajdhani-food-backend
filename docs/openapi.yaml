@@ -1532,6 +1532,141 @@ paths:
                       data: { $ref: '#/components/schemas/DownloadResolution' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /public/page-blocks/{pageKey}:
+    get:
+      tags: [Public]
+      summary: Every published block on one static page
+      description: |
+        The About, Quality and Dealer pages' own editable sections (doc
+        §9.3, §10.4; RTPP-67) — RTPP-24 built the admin CRUD but never a
+        public read path beyond the one `(home, welcome)` block RTPP-92
+        added to `GET /public/home`. Keyed by `block_key` so the page can
+        pick the one it wants. Returns `[]`, never a `404`, for a page with
+        no published blocks yet — "no content" is a normal state here.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/PageKey'
+      responses:
+        '200':
+          description: The page's published blocks, in `sort_order`.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/EnvelopeSuccess'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/PublicPageBlock' }
+
+  /public/certifications:
+    get:
+      tags: [Public]
+      summary: Active certifications
+      description: |
+        The same row rendered on both About and Quality (doc §9.3, §10.4;
+        RTPP-67). No parameters, no authentication.
+      security: []
+      responses:
+        '200':
+          description: Active certifications, in `sort_order`.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/EnvelopeSuccess'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/PublicCertification' }
+
+  /public/feature-items:
+    get:
+      tags: [Public]
+      summary: One section's icon strip
+      description: |
+        Generalises `GET /public/home`'s hard-coded `HOME_USP` strip (RTPP-92)
+        to every section a `FeatureItem` can belong to (doc §9.3, §10.1;
+        RTPP-67) — the About "Our Values"/"Our Strength" grids, Quality's
+        commitment strip, the dealer page's benefits list, and so on.
+        `section` is required: there is no sensible "every section mixed
+        together" reading for a page-shaped caller.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/FeatureItemSectionQuery'
+      responses:
+        '200':
+          description: Active feature items in this section, in `sort_order`.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/EnvelopeSuccess'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/PublicFeatureItem' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /public/process-steps:
+    get:
+      tags: [Public]
+      summary: One group's numbered timeline
+      description: |
+        The "From Garden to Cup" / "How We Make Tea" / "Become a Dealer"
+        process timelines (doc §9.3, §10.4; RTPP-67). `group` is required,
+        same reasoning as `feature-items` — a timeline is always one
+        group's steps, never a mix. Ordered by `step_number`, the
+        timeline's real sequence, not `sort_order` (display position only).
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/ProcessStepGroupQuery'
+      responses:
+        '200':
+          description: Active steps in this group, in `step_number` order.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/EnvelopeSuccess'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/PublicProcessStep' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /public/stats:
+    get:
+      tags: [Public]
+      summary: One group's count-up band
+      description: |
+        Generalises `GET /public/home`'s hard-coded `HOME` stats band
+        (RTPP-36) to every group a `StatCounter` can belong to (doc §9.3,
+        §10.1; RTPP-67) — About, Gallery, the tea-garden page, the dealer
+        network page. `group` is required, same reasoning as
+        `feature-items` and `process-steps`.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/StatCounterGroupQuery'
+      responses:
+        '200':
+          description: Active stat counters in this group, in `sort_order`.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/EnvelopeSuccess'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/PublicStatCounter' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
   # ── Admin ─────────────────────────────────────────────────────────────────
 
   /admin/categories:
@@ -5869,6 +6004,27 @@ components:
       required: true
       description: The download's stable key, e.g. `dealer_brochure` — not a ULID.
       schema: { type: string, maxLength: 64 }
+    PageKey:
+      name: pageKey
+      in: path
+      required: true
+      description: The static page's stable key, e.g. `about` — not a ULID.
+      schema: { type: string, maxLength: 64 }
+    FeatureItemSectionQuery:
+      name: section
+      in: query
+      required: true
+      schema: { $ref: '#/components/schemas/FeatureItemSectionEnum' }
+    ProcessStepGroupQuery:
+      name: group
+      in: query
+      required: true
+      schema: { $ref: '#/components/schemas/ProcessStepGroupEnum' }
+    StatCounterGroupQuery:
+      name: group
+      in: query
+      required: true
+      schema: { $ref: '#/components/schemas/StatCounterGroupEnum' }
 
   responses:
     Unauthenticated:
@@ -7652,6 +7808,85 @@ components:
           properties:
             url: { type: string }
             alt: { type: [string, 'null'] }
+
+    PublicFeatureItem:
+      type: object
+      description: One `FeatureItem` row, generalised beyond `HOME_USP` to any `section` (doc §9.3, §10.1; RTPP-67).
+      properties:
+        id: { type: string }
+        title: { type: string }
+        description: { type: [string, 'null'] }
+        icon_name: { type: [string, 'null'] }
+        icon_bg_color: { type: [string, 'null'] }
+        icon:
+          type: [object, 'null']
+          properties:
+            url: { type: string }
+            alt: { type: [string, 'null'] }
+
+    PublicProcessStep:
+      type: object
+      description: One `ProcessStep` row, active only, one `group`'s timeline in `step_number` order (doc §9.3, §10.4; RTPP-67).
+      properties:
+        id: { type: string }
+        step_number: { type: integer }
+        title: { type: string }
+        description: { type: [string, 'null'] }
+        icon_name: { type: [string, 'null'] }
+        image:
+          type: [object, 'null']
+          properties:
+            url: { type: string }
+            alt: { type: [string, 'null'] }
+            width: { type: [integer, 'null'] }
+            height: { type: [integer, 'null'] }
+
+    PublicStatCounter:
+      type: object
+      description: One `StatCounter` row, active only, generalised beyond `HOME` to any `group` (doc §9.3, §10.1; RTPP-67). Same shape as `HomeStat`.
+      properties:
+        id: { type: string }
+        value: { type: string, example: '25+', description: 'A display string, not a number to compute with.' }
+        label: { type: string }
+        icon_name: { type: [string, 'null'] }
+
+    PublicCertification:
+      type: object
+      description: One active `Certification` row (doc §9.3, §10.4; RTPP-67).
+      properties:
+        id: { type: string }
+        name: { type: string }
+        subtitle: { type: [string, 'null'] }
+        logo:
+          type: [object, 'null']
+          properties:
+            url: { type: string }
+            alt: { type: [string, 'null'] }
+            width: { type: [integer, 'null'] }
+            height: { type: [integer, 'null'] }
+        certificate_url: { type: [string, 'null'], format: uri }
+
+    PublicPageBlock:
+      type: object
+      description: One published `PageBlock` on one page (doc §9.3, §10.4; RTPP-67). No `id` or `page_key` — the caller already knows both.
+      properties:
+        block_key: { type: string, example: mission }
+        eyebrow: { type: [string, 'null'] }
+        heading: { type: [string, 'null'] }
+        subheading: { type: [string, 'null'] }
+        body: { type: [string, 'null'], description: 'Rich text, already sanitised server-side.' }
+        bullet_points:
+          type: array
+          items: { type: string }
+        cta_label: { type: [string, 'null'] }
+        cta_url: { type: [string, 'null'] }
+        image:
+          type: [object, 'null']
+          properties:
+            url: { type: string }
+            alt: { type: [string, 'null'] }
+            width: { type: [integer, 'null'] }
+            height: { type: [integer, 'null'] }
 
     HomeTestimonial:
       type: object

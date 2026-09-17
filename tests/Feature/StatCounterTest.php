@@ -93,6 +93,35 @@ final class StatCounterTest extends DatabaseTestCase
         self::assertTrue(true);
     }
 
+    // ─── public read (RTPP-67) ───────────────────────────────────────────
+
+    public function testPublicByGroupOnlyReturnsActiveStatsInThatGroup(): void
+    {
+        $this->stats->create(['group' => 'TEA_GARDEN', 'value' => '25+', 'label' => 'Visible', 'is_active' => true]);
+        $this->stats->create(['group' => 'TEA_GARDEN', 'value' => '99', 'label' => 'Hidden', 'is_active' => false]);
+        $this->stats->create(['group' => 'GALLERY', 'value' => '1', 'label' => 'Wrong Group', 'is_active' => true]);
+
+        $labels = array_column($this->stats->publicByGroup(['group' => 'TEA_GARDEN']), 'label');
+
+        self::assertSame(['Visible'], $labels);
+    }
+
+    public function testPublicByGroupRequiresAGroup(): void
+    {
+        $error = $this->captureApiError(fn () => $this->stats->publicByGroup([]));
+
+        self::assertSame('group', $error->details()[0]['field']);
+    }
+
+    public function testPublicViewOmitsGroupAndSortOrderAndIsActive(): void
+    {
+        $this->stats->create(['group' => 'TEA_GARDEN', 'value' => '25+', 'label' => 'Years']);
+
+        $stat = $this->stats->publicByGroup(['group' => 'TEA_GARDEN'])[0];
+
+        self::assertSame(['id', 'value', 'label', 'icon_name'], array_keys($stat));
+    }
+
     private function captureApiError(callable $action): ApiError
     {
         try {

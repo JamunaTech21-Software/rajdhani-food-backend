@@ -28,6 +28,27 @@ final class CertificationRepository extends Repository
         return $this->one('SELECT ' . self::COLUMNS . ' FROM certifications WHERE id = :id', [':id' => $id]);
     }
 
+    /**
+     * `GET /public/certifications` (doc §9.3, §10.4; RTPP-67) — active
+     * rows only, logo and certificate file both resolved to URLs the way
+     * every other public view in this codebase resolves a media reference.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function publicActive(): array
+    {
+        return $this->all(
+            'SELECT c.id, c.name, c.subtitle,
+                    l.secure_url AS logo_url, l.alt_text AS logo_alt, l.width AS logo_width, l.height AS logo_height,
+                    f.secure_url AS certificate_url
+               FROM certifications c
+               LEFT JOIN media_assets l ON l.id = c.logo_id
+               LEFT JOIN media_assets f ON f.id = c.certificate_file_id
+              WHERE c.is_active = 1
+              ORDER BY c.sort_order, c.name',
+        );
+    }
+
     public function mediaAssetExists(string $mediaId): bool
     {
         return $this->scalar('SELECT id FROM media_assets WHERE id = :id', [':id' => $mediaId]) !== null;

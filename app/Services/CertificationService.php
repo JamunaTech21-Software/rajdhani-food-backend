@@ -36,6 +36,17 @@ final class CertificationService
     }
 
     /**
+     * `GET /public/certifications` (doc §9.3, §10.4; RTPP-67) — active
+     * certifications, the same row rendered on both About and Quality.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function publicList(): array
+    {
+        return array_map($this->publicView(...), $this->certifications->publicActive());
+    }
+
+    /**
      * @param array<string,mixed> $input
      *
      * @return array<string,mixed>
@@ -200,6 +211,27 @@ final class CertificationService
             'certificate_file_id' => $row['certificate_file_id'] === null ? null : (string) $row['certificate_file_id'],
             'sort_order'          => (int) $row['sort_order'],
             'is_active'           => (int) $row['is_active'] === 1,
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $row
+     *
+     * @return array<string,mixed>
+     */
+    private function publicView(array $row): array
+    {
+        return [
+            'id'          => (string) $row['id'],
+            'name'        => (string) $row['name'],
+            'subtitle'    => $row['subtitle'] === null ? null : (string) $row['subtitle'],
+            'logo'        => $row['logo_url'] === null ? null : [
+                'url'    => (string) $row['logo_url'],
+                'alt'    => $row['logo_alt'] === null ? null : (string) $row['logo_alt'],
+                'width'  => $row['logo_width'] === null ? null : (int) $row['logo_width'],
+                'height' => $row['logo_height'] === null ? null : (int) $row['logo_height'],
+            ],
+            'certificate_url' => $row['certificate_url'] === null ? null : (string) $row['certificate_url'],
         ];
     }
 }

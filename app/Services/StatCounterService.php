@@ -42,6 +42,23 @@ final class StatCounterService
     }
 
     /**
+     * `GET /public/stats?group=` (doc §9.3, §10.1; RTPP-67) — `group` is
+     * required, same reasoning as the feature-item and process-step public
+     * endpoints. Shape matches `HomeService::statView()`, the endpoint this
+     * one generalises beyond the `HOME` group RTPP-36 hard-coded.
+     *
+     * @param array<string,mixed> $query
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function publicByGroup(array $query): array
+    {
+        $group = $this->requiredGroup($query);
+
+        return array_map($this->publicView(...), $this->stats->publicByGroup($group));
+    }
+
+    /**
      * @param array<string,mixed> $input
      *
      * @return array<string,mixed>
@@ -224,6 +241,21 @@ final class StatCounterService
             'icon_name'  => $row['icon_name'] === null ? null : (string) $row['icon_name'],
             'sort_order' => (int) $row['sort_order'],
             'is_active'  => (int) $row['is_active'] === 1,
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $row
+     *
+     * @return array<string,mixed>
+     */
+    private function publicView(array $row): array
+    {
+        return [
+            'id'        => (string) $row['id'],
+            'value'     => (string) $row['value'],
+            'label'     => (string) $row['label'],
+            'icon_name' => $row['icon_name'] === null ? null : (string) $row['icon_name'],
         ];
     }
 }

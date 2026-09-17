@@ -48,6 +48,22 @@ final class ProcessStepService
     }
 
     /**
+     * `GET /public/process-steps?group=` (doc §9.3, §10.4; RTPP-67) —
+     * `group` is required, same reasoning as the feature-item and stat
+     * public endpoints: a timeline is always one group's steps, never a mix.
+     *
+     * @param array<string,mixed> $query
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function publicByGroup(array $query): array
+    {
+        $group = $this->requiredGroup($query);
+
+        return array_map($this->publicView(...), $this->steps->publicByGroup($group));
+    }
+
+    /**
      * @param array<string,mixed> $input
      *
      * @return array<string,mixed>
@@ -332,6 +348,28 @@ final class ProcessStepService
             'image_id'    => $row['image_id'] === null ? null : (string) $row['image_id'],
             'sort_order'  => (int) $row['sort_order'],
             'is_active'   => (int) $row['is_active'] === 1,
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $row
+     *
+     * @return array<string,mixed>
+     */
+    private function publicView(array $row): array
+    {
+        return [
+            'id'          => (string) $row['id'],
+            'step_number' => (int) $row['step_number'],
+            'title'       => (string) $row['title'],
+            'description' => $row['description'] === null ? null : (string) $row['description'],
+            'icon_name'   => $row['icon_name'] === null ? null : (string) $row['icon_name'],
+            'image'       => $row['image_url'] === null ? null : [
+                'url'    => (string) $row['image_url'],
+                'alt'    => $row['image_alt'] === null ? null : (string) $row['image_alt'],
+                'width'  => $row['image_width'] === null ? null : (int) $row['image_width'],
+                'height' => $row['image_height'] === null ? null : (int) $row['image_height'],
+            ],
         ];
     }
 }

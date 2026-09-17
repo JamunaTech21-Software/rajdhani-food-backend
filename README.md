@@ -2064,6 +2064,63 @@ suite with no regressions.
 
 ---
 
+## Five public read endpoints for About/Quality/Dealer content (Phase 2, RTPP-67)
+
+`GET /public/page-blocks/:pageKey`, `GET /public/certifications`,
+`GET /public/feature-items?section=`, `GET /public/process-steps?group=`,
+`GET /public/stats?group=` — the standalone public backlog RTPP-92's own
+narrative explicitly deferred (`/public/page-blocks/:pageKey` and friends,
+"still open, still someone else's ticket"). All five modules got admin CRUD
+under RTPP-24 but no public read path at all, so the About page, the Quality
+page, and the dealer-benefits sections of several pages had content sitting
+in the database with no way to fetch it — the same underlying gap RTPP-50
+and RTPP-59 hit before this one.
+
+**Naming matches what the front-end's `usePageContent.js` was already coded
+against** — `feature-items`, `process-steps`, `stats`, not the repository's
+own `FeatureItem`/`ProcessStep`/`StatCounter` naming — since the front-end
+reported these exact paths already 404ing.
+
+`section` and `group` are required on the three grouped endpoints (feature
+items, process steps, stats): a page-shaped caller never wants "every
+section mixed together", only the one strip or timeline it renders — the
+same reasoning `HomeService` already applied when it hard-coded `HOME_USP`
+and the `HOME` stats group. This ticket generalises those two hard-coded
+reads to every group each table can hold, without changing `/public/home`
+itself. `page-blocks/:pageKey` takes a route segment instead, since a page's
+blocks are always fetched as a set, keyed by `block_key` client-side.
+
+Each endpoint reuses the identical repository → service → controller shape
+already established by `FeatureItemRepository::publicBySection()` (built for
+`/public/home`'s USP strip) and `StatCounterRepository::publicByGroup()`
+(built for `/public/home`'s stats band): a `LEFT JOIN media_assets` resolving
+any image/logo reference to `{url, alt, width, height}`, active/`PUBLISHED`
+rows only, and a `publicView()` shaping method distinct from each admin
+`view()` — the admin view exposes raw foreign-key ids, the public one
+resolves them. `page-blocks/:pageKey` returns `[]` for a page with nothing
+published yet, never a `404` — "no content" is a normal state for a page
+still being written.
+
+Also fixed: RTPP-67's own ticket text named `/privacy-policy` and
+`/terms-conditions` as the two legal pages; the routes that actually exist
+are `/privacy` and `/terms` (`docs/openapi.yaml`, `routes/public.php`) —
+corrected in Jira rather than built to match stale ticket text.
+
+Verified live against the running dev server: `GET /public/feature-items`
+and `/public/process-steps` and `/public/stats` each `422` with a clear
+field name when `section`/`group` is omitted; `GET /public/certifications`
+returned the three seeded rows; `GET /public/page-blocks/about` returned
+the seeded `our_story`/`mission` blocks with decoded `bullet_points` and a
+correctly dimensioned `image`; `GET /public/page-blocks/nonexistent-page`
+returned `{"data": []}`, not a `404`. All five routes are read-only GETs, so
+no dev-database cleanup was needed afterward. 828 tests (15 new, added to
+the existing `FeatureItemTest`, `ProcessStepTest`, `StatCounterTest`,
+`CertificationTest`, `PageBlockTest` rather than new files), 0 lint errors,
+PHPStan level 8 clean, `docs/openapi.yaml` back in sync with the routing
+table (193/193).
+
+---
+
 ## Layout
 
 Only `public/` is web-exposed. Everything else sits above it and is unreachable

@@ -90,6 +90,54 @@ final class CertificationTest extends DatabaseTestCase
         self::assertSame(ErrorCode::VALIDATION_ERROR, $error->errorCode());
     }
 
+    // ─── public read (RTPP-67) ───────────────────────────────────────────
+
+    public function testPublicListIncludesAnActiveCertificationButNotAnInactiveOne(): void
+    {
+        $this->certifications->create(['name' => 'Public Active Certification', 'is_active' => true]);
+        $this->certifications->create(['name' => 'Public Inactive Certification', 'is_active' => false]);
+
+        $names = array_column($this->certifications->publicList(), 'name');
+
+        self::assertContains('Public Active Certification', $names);
+        self::assertNotContains('Public Inactive Certification', $names);
+    }
+
+    public function testPublicViewShapesTheLogoAndCertificateUrl(): void
+    {
+        $logoId = $this->insertMediaAsset();
+        $fileId = $this->insertMediaAsset();
+        $certification = $this->certifications->create([
+            'name' => 'Certification With Assets', 'logo_id' => $logoId, 'certificate_file_id' => $fileId,
+        ]);
+
+        $found = array_values(array_filter(
+            $this->certifications->publicList(),
+            static fn (array $row): bool => $row['id'] === $certification['id'],
+        ))[0];
+
+        self::assertArrayNotHasKey('logo_id', $found);
+        self::assertArrayNotHasKey('certificate_file_id', $found);
+        self::assertSame('https://example.test/img.jpg', $found['logo']['url']);
+        self::assertSame('https://example.test/img.jpg', $found['certificate_url']);
+    }
+
+    private function insertMediaAsset(): string
+    {
+        $id = UlidHelper::generate();
+        $this->db->prepare(
+            'INSERT INTO media_assets (id, public_id, secure_url, type, created_at)
+             VALUES (:id, :public_id, :url, \'IMAGE\', :now)'
+        )->execute([
+            ':id'        => $id,
+            ':public_id' => 'test/' . bin2hex(random_bytes(6)),
+            ':url'       => 'https://example.test/img.jpg',
+            ':now'       => (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))->format('Y-m-d H:i:s.v'),
+        ]);
+
+        return $id;
+    }
+
     private function captureApiError(callable $action): ApiError
     {
         try {
